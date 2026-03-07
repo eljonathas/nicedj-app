@@ -28,11 +28,10 @@ type VoteAppearance = {
   label: string
   helper: string
   icon: typeof ThumbsUp
-  accent: string
   accentSoft: string
-  border: string
   text: string
-  background: string
+  surface: string
+  selectedSurface: string
   glow: string
 }
 
@@ -41,36 +40,33 @@ const VOTE_APPEARANCE: Record<VoteType, VoteAppearance> = {
     label: 'Woot',
     helper: 'apoios',
     icon: ThumbsUp,
-    accent: '#37d27c',
-    accentSoft: 'rgba(55,210,124,0.16)',
-    border: 'rgba(55,210,124,0.24)',
+    accentSoft: 'rgba(55,210,124,0.18)',
     text: '#93ffc0',
-    background:
-      'linear-gradient(180deg, rgba(12,28,20,0.96) 0%, rgba(8,16,13,0.94) 100%)',
+    surface: 'rgba(255,255,255,0.035)',
+    selectedSurface:
+      'linear-gradient(135deg, rgba(55,210,124,0.22) 0%, rgba(10,18,15,0.94) 100%)',
     glow: 'rgba(55,210,124,0.22)',
   },
   grab: {
     label: 'Grab',
     helper: 'salvos',
     icon: Heart,
-    accent: '#ffb547',
-    accentSoft: 'rgba(255,181,71,0.16)',
-    border: 'rgba(255,181,71,0.24)',
+    accentSoft: 'rgba(255,181,71,0.18)',
     text: '#ffd488',
-    background:
-      'linear-gradient(180deg, rgba(35,25,12,0.96) 0%, rgba(18,13,8,0.94) 100%)',
+    surface: 'rgba(255,255,255,0.035)',
+    selectedSurface:
+      'linear-gradient(135deg, rgba(255,181,71,0.24) 0%, rgba(20,15,10,0.94) 100%)',
     glow: 'rgba(255,181,71,0.2)',
   },
   meh: {
     label: 'Meh',
     helper: 'vaias',
     icon: ThumbsDown,
-    accent: '#ff6158',
-    accentSoft: 'rgba(255,97,88,0.16)',
-    border: 'rgba(255,97,88,0.24)',
+    accentSoft: 'rgba(255,97,88,0.18)',
     text: '#ffb0aa',
-    background:
-      'linear-gradient(180deg, rgba(37,16,18,0.96) 0%, rgba(18,9,10,0.94) 100%)',
+    surface: 'rgba(255,255,255,0.035)',
+    selectedSurface:
+      'linear-gradient(135deg, rgba(255,97,88,0.22) 0%, rgba(20,11,12,0.94) 100%)',
     glow: 'rgba(255,97,88,0.22)',
   },
 }
@@ -120,9 +116,8 @@ export function VoteBar({
 
   if (floating) {
     return (
-      <div className="relative overflow-hidden rounded-[1.55rem] border border-[rgba(255,255,255,0.12)] bg-[linear-gradient(180deg,rgba(9,14,20,0.9)_0%,rgba(7,11,17,0.84)_100%)] p-2 shadow-[0_22px_42px_rgba(0,0,0,0.42)] backdrop-blur-[18px]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(124,180,255,0.12),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(55,210,124,0.08),transparent_38%)]" />
-        <div className="relative flex items-stretch gap-2">
+      <div className="rounded-[1.45rem] bg-[rgba(8,13,19,0.78)] p-1.5 shadow-[0_18px_34px_rgba(0,0,0,0.34)] backdrop-blur-[18px]">
+        <div className="flex items-stretch gap-1.5">
           <VoteButton
             type="woot"
             value={votes.woots}
@@ -159,9 +154,8 @@ export function VoteBar({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-[1.75rem] border border-[rgba(255,255,255,0.1)] bg-[linear-gradient(180deg,rgba(9,14,20,0.92)_0%,rgba(7,11,17,0.86)_100%)] p-3 shadow-[0_24px_48px_rgba(0,0,0,0.38)] backdrop-blur-[18px]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(130,170,255,0.12),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,181,71,0.08),transparent_32%)]" />
-      <div className="relative flex w-full flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+    <div className="rounded-[1.65rem] bg-[rgba(8,13,19,0.8)] p-2.5 shadow-[0_20px_44px_rgba(0,0,0,0.34)] backdrop-blur-[20px]">
+      <div className="flex w-full flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex shrink-0 items-center gap-3">
           {showQueueAction &&
             (isCurrentDJ ? (
@@ -182,39 +176,47 @@ export function VoteBar({
             ))}
         </div>
 
-        <div className="grid flex-1 grid-cols-1 gap-2.5 sm:grid-cols-3 xl:max-w-[470px] xl:flex-none">
+        <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-3 xl:max-w-[470px] xl:flex-none">
           <VoteButton
             type="woot"
             value={votes.woots}
             isSelected={hasWooted || recentVote?.type === 'woot'}
-            interactionNonce={recentVote?.type === 'woot' ? recentVote.nonce : null}
+            interactionNonce={
+              recentVote?.type === 'woot' ? recentVote.nonce : null
+            }
             onClick={() => triggerVote('woot')}
           />
           <VoteButton
             type="grab"
             value={votes.grabs}
             isSelected={recentVote?.type === 'grab'}
-            interactionNonce={recentVote?.type === 'grab' ? recentVote.nonce : null}
+            interactionNonce={
+              recentVote?.type === 'grab' ? recentVote.nonce : null
+            }
             onClick={() => triggerVote('grab')}
           />
           <VoteButton
             type="meh"
             value={votes.mehs}
             isSelected={recentVote?.type === 'meh'}
-            interactionNonce={recentVote?.type === 'meh' ? recentVote.nonce : null}
+            interactionNonce={
+              recentVote?.type === 'meh' ? recentVote.nonce : null
+            }
             onClick={() => triggerVote('meh')}
           />
         </div>
 
         <div className="hidden min-w-[170px] items-center justify-end xl:flex">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(14,19,27,0.86)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] shadow-[0_12px_26px_rgba(0,0,0,0.28)]">
-            <span className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+          <div className="text-right">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
               Fila
             </span>
-            <span>{queueLength}</span>
-            {!isCurrentDJ && queueLength > 0 ? (
-              <ArrowRight className="h-3.5 w-3.5 text-[var(--accent-hover)]" />
-            ) : null}
+            <div className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-secondary)]">
+              <span className="tabular-nums">{queueLength}</span>
+              {!isCurrentDJ && queueLength > 0 ? (
+                <ArrowRight className="h-3.5 w-3.5 text-[var(--accent-hover)]" />
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
@@ -339,29 +341,23 @@ function VoteButton({
       onClick={onClick}
       whileHover={reduceMotion ? undefined : { y: -3, scale: 1.012 }}
       whileTap={reduceMotion ? undefined : { scale: 0.975 }}
-      className={`group relative isolate overflow-hidden rounded-[1.25rem] border text-left transition-all ${
+      className={`group relative isolate overflow-hidden rounded-[1.2rem] text-left transition-all duration-200 ${
         compact
-          ? 'flex h-[84px] w-[76px] items-center justify-center p-2'
-          : 'flex min-h-[84px] items-center p-3'
+          ? 'flex h-[82px] w-[76px] items-center justify-center p-2'
+          : 'flex min-h-[82px] items-center p-3'
       }`}
       style={buttonStyle}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_42%)]" />
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-px"
-        style={{ backgroundColor: 'rgba(255,255,255,0.16)' }}
-      />
-
       <AnimatePresence>
         {interactionNonce ? (
           <motion.span
             key={`${type}-${interactionNonce}`}
-            initial={{ opacity: 0.38, scale: 0.62 }}
+            initial={{ opacity: 0.28, scale: 0.7 }}
             animate={{ opacity: 0, scale: 1.22 }}
             exit={{ opacity: 0 }}
             transition={{ duration: reduceMotion ? 0.01 : 0.42 }}
-            className="pointer-events-none absolute inset-[10px] rounded-[1rem] border"
-            style={{ borderColor: appearance.border }}
+            className="pointer-events-none absolute inset-[8px] rounded-[1rem]"
+            style={{ backgroundColor: appearance.accentSoft }}
           />
         ) : null}
       </AnimatePresence>
@@ -376,22 +372,18 @@ function VoteButton({
         <motion.div
           animate={iconAnimation}
           transition={iconTransition}
-          className={`relative flex shrink-0 items-center justify-center rounded-[1rem] border ${
+          className={`relative flex shrink-0 items-center justify-center rounded-[0.95rem] ${
             compact ? 'h-10 w-10' : 'h-12 w-12'
           }`}
           style={{
-            backgroundColor: appearance.accentSoft,
-            borderColor: appearance.border,
-            boxShadow: isSelected ? `0 0 0 1px ${appearance.border}` : undefined,
+            backgroundColor: isSelected
+              ? appearance.accentSoft
+              : 'rgba(255,255,255,0.055)',
+            boxShadow: isSelected
+              ? `0 10px 22px ${appearance.glow}`
+              : 'inset 0 1px 0 rgba(255,255,255,0.04)',
           }}
         >
-          <div
-            className="pointer-events-none absolute inset-0 rounded-[inherit]"
-            style={{
-              background:
-                'linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 65%)',
-            }}
-          />
           <Icon
             className={compact ? 'h-4 w-4' : 'h-4.5 w-4.5'}
             style={{ color: appearance.text }}
@@ -455,13 +447,10 @@ function getVoteButtonStyle(
   isSelected: boolean,
 ): CSSProperties {
   return {
-    borderColor: isSelected
-      ? appearance.accent
-      : appearance.border,
-    background: appearance.background,
+    background: isSelected ? appearance.selectedSurface : appearance.surface,
     boxShadow: isSelected
-      ? `0 18px 34px ${appearance.glow}`
-      : '0 16px 28px rgba(0,0,0,0.28)',
+      ? `0 16px 30px ${appearance.glow}, inset 0 1px 0 rgba(255,255,255,0.06)`
+      : 'inset 0 1px 0 rgba(255,255,255,0.04)',
   }
 }
 

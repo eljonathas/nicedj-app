@@ -11,6 +11,9 @@ interface WsMessage {
 
 type OutboundCommand = WsMessage & { type: "command" };
 
+const WS_PROTOCOL = "nicedj.v1";
+const WS_AUTH_PROTOCOL_PREFIX = "bearer.";
+
 const ROOM_SCOPED_COMMANDS = new Set([
     "send_chat",
     "vote",
@@ -42,16 +45,18 @@ export class WsClient {
     private readonly maxPendingCommands = 100;
     private activeRoomId: string | null = null;
     private joinedRoomId: string | null = null;
+    private protocols: string[];
 
     constructor(token: string) {
         const base = import.meta.env.VITE_WS_URL || "ws://localhost:3000/ws";
-        this.url = `${base}?token=${token}`;
+        this.url = base;
+        this.protocols = [WS_PROTOCOL, `${WS_AUTH_PROTOCOL_PREFIX}${token}`];
     }
 
     connect(): void {
         if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) return;
 
-        this.ws = new WebSocket(this.url);
+        this.ws = new WebSocket(this.url, this.protocols);
 
         this.ws.onopen = () => {
             this.reconnectAttempts = 0;
