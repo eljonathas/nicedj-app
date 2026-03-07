@@ -247,8 +247,9 @@ function resolveAvatarSpriteSheet(
   avatar: string | null,
   variant: AvatarSpriteVariant,
 ) {
-  const baseSpriteSheet =
-    avatar?.includes('/sprites/') ? avatar : DEFAULT_AUDIENCE_SPRITE
+  const baseSpriteSheet = avatar?.includes('/sprites/')
+    ? avatar
+    : DEFAULT_AUDIENCE_SPRITE
 
   if (variant === 'normal') {
     return baseSpriteSheet
@@ -473,7 +474,7 @@ class AudienceGrid {
     return 1
   }
 
-  getCellsInZone(zoneId: number, includeInvalid = false) {
+  getCellsInZone(zoneId: number, includeInvalid = false): GridCell[] {
     const cells: GridCell[] = []
 
     for (const zone of this.zones) {

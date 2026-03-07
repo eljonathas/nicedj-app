@@ -20,7 +20,9 @@ export type RoomRoleName =
   | 'host'
 
 export type PlatformRoleName = 'none' | 'developer' | 'ambassador'
-export type UserPresenceGroupName = Exclude<PlatformRoleName, 'none'> | RoomRoleName
+export type UserPresenceGroupName =
+  | Exclude<PlatformRoleName, 'none'>
+  | RoomRoleName
 
 export type RoomPermission =
   | 'send_chat'
@@ -56,11 +58,64 @@ const ROOM_ROLE_ORDER: RoomRoleName[] = [
 const ROOM_ROLE_PERMISSIONS: Record<RoomRoleName, RoomPermission[]> = {
   guest: [],
   user: ['send_chat', 'join_queue', 'vote', 'skip_self'],
-  resident_dj: ['send_chat', 'join_queue', 'bypass_queue_lock', 'vote', 'skip_self'],
-  coordinator: ['send_chat', 'join_queue', 'vote', 'skip_self', 'skip_others', 'mute_user', 'kick_user', 'clear_chat'],
-  manager: ['send_chat', 'join_queue', 'vote', 'skip_self', 'skip_others', 'mute_user', 'kick_user', 'ban_user', 'clear_chat', 'manage_queue'],
-  cohost: ['send_chat', 'join_queue', 'vote', 'skip_self', 'skip_others', 'mute_user', 'kick_user', 'ban_user', 'clear_chat', 'manage_queue', 'manage_roles', 'manage_room'],
-  host: ['send_chat', 'join_queue', 'vote', 'skip_self', 'skip_others', 'mute_user', 'kick_user', 'ban_user', 'clear_chat', 'manage_queue', 'manage_roles', 'manage_room', 'delete_room'],
+  resident_dj: [
+    'send_chat',
+    'join_queue',
+    'bypass_queue_lock',
+    'vote',
+    'skip_self',
+  ],
+  coordinator: [
+    'send_chat',
+    'join_queue',
+    'vote',
+    'skip_self',
+    'skip_others',
+    'mute_user',
+    'kick_user',
+    'clear_chat',
+  ],
+  manager: [
+    'send_chat',
+    'join_queue',
+    'vote',
+    'skip_self',
+    'skip_others',
+    'mute_user',
+    'kick_user',
+    'ban_user',
+    'clear_chat',
+    'manage_queue',
+  ],
+  cohost: [
+    'send_chat',
+    'join_queue',
+    'vote',
+    'skip_self',
+    'skip_others',
+    'mute_user',
+    'kick_user',
+    'ban_user',
+    'clear_chat',
+    'manage_queue',
+    'manage_roles',
+    'manage_room',
+  ],
+  host: [
+    'send_chat',
+    'join_queue',
+    'vote',
+    'skip_self',
+    'skip_others',
+    'mute_user',
+    'kick_user',
+    'ban_user',
+    'clear_chat',
+    'manage_queue',
+    'manage_roles',
+    'manage_room',
+    'delete_room',
+  ],
 }
 
 type RoomRoleMeta = {
@@ -90,8 +145,8 @@ type UserPresenceGroupMeta = {
 
 type PresenceSortableUser = {
   username: string
-  role: string | null | undefined
-  platformRole: string | null | undefined
+  role?: string | null
+  platformRole?: string | null
 }
 
 const ROOM_ROLE_META: Record<RoomRoleName, RoomRoleMeta> = {
@@ -222,7 +277,9 @@ const USER_PRESENCE_GROUP_TITLES: Record<UserPresenceGroupName, string> = {
   guest: 'Visitantes',
 }
 
-export function normalizeRoomRole(value: string | null | undefined): RoomRoleName {
+export function normalizeRoomRole(
+  value: string | null | undefined,
+): RoomRoleName {
   const normalized = value?.trim().toLowerCase()
 
   if (!normalized) {
@@ -266,7 +323,9 @@ export function getUserPresenceGroup(
   return normalizeRoomRole(roomRole)
 }
 
-export function getUserPresenceGroupMeta(group: UserPresenceGroupName): UserPresenceGroupMeta {
+export function getUserPresenceGroupMeta(
+  group: UserPresenceGroupName,
+): UserPresenceGroupMeta {
   if (group === 'developer' || group === 'ambassador') {
     const platformMeta = PLATFORM_ROLE_META[group]
     return {

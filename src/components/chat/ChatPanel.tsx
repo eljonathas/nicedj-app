@@ -87,19 +87,30 @@ export function ChatPanel() {
   }, [users])
   const parsedMessages = useMemo(
     () =>
-      messages.map((message) => ({
-        ...message,
-        mentionMeta: message.system
-          ? null
-          : parseChatMentions(message.content, mentionIndex, user?.id),
-      })),
+      messages.map((message) =>
+        message.system
+          ? {
+              ...message,
+              system: true as const,
+              mentionMeta: null,
+            }
+          : {
+              ...message,
+              system: false as const,
+              mentionMeta: parseChatMentions(
+                message.content,
+                mentionIndex,
+                user?.id,
+              ),
+            },
+      ),
     [mentionIndex, messages, user?.id],
   )
   const mentionMatchCount = useMemo(
     () =>
       parsedMessages.filter(
         (message) =>
-          !message.system && Boolean(message.mentionMeta?.mentionsCurrentUser),
+          !message.system && Boolean(message.mentionMeta.mentionsCurrentUser),
       ).length,
     [parsedMessages],
   )
@@ -181,7 +192,9 @@ export function ChatPanel() {
 
         return (
           item.type === 'user' &&
-          item.messages.some((message) => message.mentionMeta.mentionsCurrentUser)
+          item.messages.some(
+            (message) => message.mentionMeta.mentionsCurrentUser,
+          )
         )
       }),
     [groupedItems, showMentionedOnly],
@@ -384,8 +397,8 @@ export function ChatPanel() {
             const platformRole = getPlatformRoleMeta(item.platformRole)
             const RoomRoleIcon = roomRole.icon
             const PlatformRoleIcon = platformRole.icon
-            const groupMentionsCurrentUser = item.messages.some((message) =>
-              message.mentionMeta.mentionsCurrentUser,
+            const groupMentionsCurrentUser = item.messages.some(
+              (message) => message.mentionMeta.mentionsCurrentUser,
             )
 
             return (
@@ -443,7 +456,9 @@ export function ChatPanel() {
                           (segment, segmentIndex) => {
                             if (segment.type === 'text') {
                               return (
-                                <span key={`${message.id}-text-${segmentIndex}`}>
+                                <span
+                                  key={`${message.id}-text-${segmentIndex}`}
+                                >
                                   {segment.text}
                                 </span>
                               )
