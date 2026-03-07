@@ -6,7 +6,15 @@ interface User {
     id: string;
     username: string;
     email: string;
+    avatarId?: string | null;
     avatar?: string | null;
+    level: number;
+    xp: number;
+}
+
+interface ProgressionPayload {
+    level: number;
+    xp: number;
 }
 
 interface AuthState {
@@ -22,6 +30,8 @@ interface AuthState {
     logout: () => void;
     setError: (error: string | null) => void;
     initialize: () => Promise<void>;
+    applyProgression: (progression: ProgressionPayload) => void;
+    setAvatarSelection: (avatarId: string, avatar: string) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -46,13 +56,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
 
         try {
-            const result = await api<{ userId: string; username: string; email: string; avatar: string | null }>("/api/auth/me", { token });
+            const result = await api<{
+                userId: string;
+                username: string;
+                email: string;
+                avatarId: string | null;
+                avatar: string | null;
+                level: number;
+                xp: number;
+            }>("/api/auth/me", { token });
 
             const ws = new WsClient(token);
             ws.connect();
 
             set({
-                user: { id: result.userId, username: result.username, email: result.email, avatar: result.avatar },
+                user: {
+                    id: result.userId,
+                    username: result.username,
+                    email: result.email,
+                    avatarId: result.avatarId,
+                    avatar: result.avatar,
+                    level: result.level,
+                    xp: result.xp,
+                },
                 wsClient: ws,
                 initialized: true,
             });
@@ -101,4 +127,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     setError: (error) => set({ error }),
+    applyProgression: (progression) =>
+        set((state) => ({
+            user: state.user
+                ? {
+                    ...state.user,
+                    level: progression.level,
+                    xp: progression.xp,
+                }
+                : null,
+        })),
+    setAvatarSelection: (avatarId, avatar) =>
+        set((state) => ({
+            user: state.user
+                ? {
+                    ...state.user,
+                    avatarId,
+                    avatar,
+                }
+                : null,
+        })),
 }));

@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-03-07T14:26:16.316Z",
+  "total": 1,
+  "items": [
+    {
+      "id": "classic10",
+      "name": "classic10",
+      "tab": "Level 192",
+      "category": "equipped",
+      "collection": "classic",
+      "type": "level",
+      "status": "Equipped",
+      "unlocked": true,
+      "unlockLevel": 1,
+      "price": null,
+      "currency": null,
+      "backgroundSize": "1600px",
+      "backgroundPosition": "0px 50%",
+      "backgroundRepeat": "no-repeat",
+      "url": "/sprites/level_192/equipped/classic10.png"
+    }
+  ]
+}

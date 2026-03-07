@@ -37,6 +37,7 @@ interface RoomInfo {
     slug: string;
     description: string;
     ownerId: string;
+    ownerUsername?: string;
 }
 
 interface ActiveRoomShortcut {
@@ -60,6 +61,7 @@ interface RoomState {
     setRoom: (room: RoomInfo | null) => void;
     setUsers: (users: RoomUser[]) => void;
     addUser: (user: RoomUser) => void;
+    updateUserAvatar: (userId: string, avatar: string | null) => void;
     removeUser: (userId: string) => void;
     setQueue: (queue: string[]) => void;
     setPlayback: (playback: Playback | null) => void;
@@ -122,6 +124,14 @@ export const useRoomStore = create<RoomState>((set) => ({
             }
             return { users: [...s.users, user] };
         }),
+    updateUserAvatar: (userId, avatar) =>
+        set((s) => ({
+            users: s.users.map((user) =>
+                user.id === userId
+                    ? { ...user, avatar }
+                    : user
+            ),
+        })),
     removeUser: (userId) => set((s) => ({ users: s.users.filter((u) => u.id !== userId) })),
     setQueue: (queue) => set({ queue }),
     setPlayback: (playback) =>

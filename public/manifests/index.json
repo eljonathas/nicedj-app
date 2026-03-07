@@ -1,0 +1,194 @@
+{
+  "generatedAt": "2026-03-07T14:26:16.316Z",
+  "total": 251,
+  "counts": {
+    "free": 15,
+    "level": 192,
+    "subscription": 44
+  },
+  "collections": [
+    {
+      "name": "2014hw",
+      "total": 15,
+      "file": "/manifests/collections/2014hw.json"
+    },
+    {
+      "name": "2014winter",
+      "total": 10,
+      "file": "/manifests/collections/2014winter.json"
+    },
+    {
+      "name": "80s",
+      "total": 15,
+      "file": "/manifests/collections/80s.json"
+    },
+    {
+      "name": "base",
+      "total": 15,
+      "file": "/manifests/collections/base.json"
+    },
+    {
+      "name": "beach",
+      "total": 13,
+      "file": "/manifests/collections/beach.json"
+    },
+    {
+      "name": "classic",
+      "total": 11,
+      "file": "/manifests/collections/classic.json"
+    },
+    {
+      "name": "country",
+      "total": 15,
+      "file": "/manifests/collections/country.json"
+    },
+    {
+      "name": "diner",
+      "total": 16,
+      "file": "/manifests/collections/diner.json"
+    },
+    {
+      "name": "dragon",
+      "total": 4,
+      "file": "/manifests/collections/dragon.json"
+    },
+    {
+      "name": "hiphop",
+      "total": 17,
+      "file": "/manifests/collections/hiphop.json"
+    },
+    {
+      "name": "island",
+      "total": 12,
+      "file": "/manifests/collections/island.json"
+    },
+    {
+      "name": "nyc",
+      "total": 12,
+      "file": "/manifests/collections/nyc.json"
+    },
+    {
+      "name": "rave",
+      "total": 15,
+      "file": "/manifests/collections/rave.json"
+    },
+    {
+      "name": "robot",
+      "total": 17,
+      "file": "/manifests/collections/robot.json"
+    },
+    {
+      "name": "rock",
+      "total": 15,
+      "file": "/manifests/collections/rock.json"
+    },
+    {
+      "name": "sea",
+      "total": 13,
+      "file": "/manifests/collections/sea.json"
+    },
+    {
+      "name": "warrior",
+      "total": 15,
+      "file": "/manifests/collections/warrior.json"
+    },
+    {
+      "name": "zoo",
+      "total": 21,
+      "file": "/manifests/collections/zoo.json"
+    }
+  ],
+  "categories": [
+    {
+      "name": "click_to_unlock",
+      "total": 9,
+      "file": "/manifests/categories/click_to_unlock.json"
+    },
+    {
+      "name": "equipped",
+      "total": 1,
+      "file": "/manifests/categories/equipped.json"
+    },
+    {
+      "name": "free",
+      "total": 15,
+      "file": "/manifests/categories/free.json"
+    },
+    {
+      "name": "level_10_required",
+      "total": 13,
+      "file": "/manifests/categories/level_10_required.json"
+    },
+    {
+      "name": "level_11_required",
+      "total": 15,
+      "file": "/manifests/categories/level_11_required.json"
+    },
+    {
+      "name": "level_12_required",
+      "total": 17,
+      "file": "/manifests/categories/level_12_required.json"
+    },
+    {
+      "name": "level_13_required",
+      "total": 15,
+      "file": "/manifests/categories/level_13_required.json"
+    },
+    {
+      "name": "level_14_required",
+      "total": 21,
+      "file": "/manifests/categories/level_14_required.json"
+    },
+    {
+      "name": "level_3_required",
+      "total": 17,
+      "file": "/manifests/categories/level_3_required.json"
+    },
+    {
+      "name": "level_4_required",
+      "total": 15,
+      "file": "/manifests/categories/level_4_required.json"
+    },
+    {
+      "name": "level_5_required",
+      "total": 15,
+      "file": "/manifests/categories/level_5_required.json"
+    },
+    {
+      "name": "level_6_required",
+      "total": 13,
+      "file": "/manifests/categories/level_6_required.json"
+    },
+    {
+      "name": "level_7_required",
+      "total": 16,
+      "file": "/manifests/categories/level_7_required.json"
+    },
+    {
+      "name": "level_8_required",
+      "total": 12,
+      "file": "/manifests/categories/level_8_required.json"
+    },
+    {
+      "name": "level_9_required",
+      "total": 12,
+      "file": "/manifests/categories/level_9_required.json"
+    },
+    {
+      "name": "subscription_required",
+      "total": 44,
+      "file": "/manifests/categories/subscription_required.json"
+    },
+    {
+      "name": "unlocked",
+      "total": 1,
+      "file": "/manifests/categories/unlocked.json"
+    }
+  ],
+  "files": {
+    "all": "/manifests/shop.manifest.json",
+    "free": "/manifests/free.json",
+    "level": "/manifests/level.json",
+    "subscription": "/manifests/subscription.json"
+  }
+}

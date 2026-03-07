@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { api } from "../lib/api";
+import { useAuthStore } from "./authStore";
 
 interface Track {
     id: string;
@@ -45,6 +46,14 @@ interface PlaylistState {
     addTrackFromUrl: (playlistId: string, url: string) => Promise<void>;
     removeTrack: (playlistId: string, trackId: string) => Promise<void>;
     reorderTracks: (playlistId: string, trackIds: string[]) => Promise<void>;
+}
+
+interface TrackMutationResponse {
+    track: Track;
+    progression?: {
+        level: number;
+        xp: number;
+    } | null;
 }
 
 export const usePlaylistStore = create<PlaylistState>((set, get) => ({
@@ -93,14 +102,20 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
     },
 
     addTrack: async (playlistId: string, track) => {
-        const result = await api<{ track: Track }>(`/api/playlists/${playlistId}/tracks`, { method: "POST", body: track });
+        const result = await api<TrackMutationResponse>(`/api/playlists/${playlistId}/tracks`, { method: "POST", body: track });
+        if (result.progression) {
+            useAuthStore.getState().applyProgression(result.progression);
+        }
         set((s) => ({
             tracks: [...s.tracks, result.track].sort((a, b) => a.position - b.position),
         }));
     },
 
     addTrackFromUrl: async (playlistId: string, url: string) => {
-        const result = await api<{ track: Track }>(`/api/playlists/${playlistId}/tracks`, { method: "POST", body: { url } });
+        const result = await api<TrackMutationResponse>(`/api/playlists/${playlistId}/tracks`, { method: "POST", body: { url } });
+        if (result.progression) {
+            useAuthStore.getState().applyProgression(result.progression);
+        }
         set((s) => ({
             tracks: [...s.tracks, result.track].sort((a, b) => a.position - b.position),
         }));

@@ -70,6 +70,8 @@ export function SoundCloudPlayer() {
         scrolling="no"
         frameBorder="no"
         allow="autoplay"
+        tabIndex={-1}
+        className="pointer-events-none select-none"
         src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(scUrl)}&auto_play=true&show_artwork=true&visual=true&color=%231db954`}
       />
     </div>

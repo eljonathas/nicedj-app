@@ -38,6 +38,7 @@ interface RoomData {
   slug: string
   description: string
   ownerId: string
+  ownerUsername: string
   capacity: number
   isPrivate: boolean
 }
@@ -57,7 +58,13 @@ function RoomPage() {
   const reset = useRoomStore((s) => s.reset)
   const setRoom = useRoomStore((s) => s.setRoom)
 
-  const { activePanel, setActivePanel, isMobile, setIsMobile } = useUIStore()
+  const {
+    activePanel,
+    setActivePanel,
+    isMobile,
+    setIsMobile,
+    setRoomSidebarWidth,
+  } = useUIStore()
   const [loadingRoom, setLoadingRoom] = useState(true)
   const [roomError, setRoomError] = useState<string | null>(null)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
@@ -77,6 +84,7 @@ function RoomPage() {
           slug: data.slug,
           description: data.description,
           ownerId: data.ownerId,
+          ownerUsername: data.ownerUsername,
         })
       } catch (err: any) {
         setRoomError(err.message || 'Sala indisponível.')
@@ -92,14 +100,6 @@ function RoomPage() {
     if (!wsClient || !room?.id) return
 
     wsClient.send('join_room', { roomId: room.id })
-    let joined = true
-
-    return () => {
-      if (joined) {
-        wsClient.send('leave_room')
-        joined = false
-      }
-    }
   }, [room?.id, wsClient])
 
   useEffect(() => {
@@ -116,6 +116,21 @@ function RoomPage() {
     return () => window.removeEventListener('resize', handler)
   }, [setIsMobile])
 
+  useEffect(() => {
+    if (isMobile) {
+      setRoomSidebarWidth(0)
+      return
+    }
+
+    setRoomSidebarWidth(isPanelCollapsed ? 58 : 336)
+  }, [isMobile, isPanelCollapsed, setRoomSidebarWidth])
+
+  useEffect(() => {
+    return () => {
+      setRoomSidebarWidth(336)
+    }
+  }, [setRoomSidebarWidth])
+
   const panelTabs = [
     { id: 'chat' as const, label: 'Chat', icon: MessageSquare },
     { id: 'users' as const, label: 'Pessoas', icon: Users },
@@ -129,7 +144,7 @@ function RoomPage() {
       users.find((candidate) => candidate.role === 'host') ??
       users.find((candidate) => candidate.id === room.ownerId)
 
-    return hostUser?.username ?? 'aguardando host'
+    return hostUser?.username ?? room.ownerUsername ?? 'aguardando host'
   }, [room, users])
 
   if (loadingRoom) {
@@ -238,8 +253,10 @@ function RoomPage() {
       <Stage users={users} djId={currentDjId} />
 
       <div className="pointer-events-none absolute inset-x-0 top-3 z-30 flex justify-center px-4">
-        <div className="pointer-events-auto h-[clamp(180px,28vh,320px)] w-full max-w-[720px] overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.14)] shadow-[0_24px_48px_rgba(0,0,0,0.58)]">
-          <MediaPlayer />
+        <div className="pointer-events-auto w-full max-w-160">
+          <div className="mx-auto aspect-video w-full overflow-hidden rounded-2xl">
+            <MediaPlayer />
+          </div>
         </div>
       </div>
 
@@ -269,6 +286,7 @@ function RoomPage() {
             <RoomTopBar
               roomName={room?.name || 'Sala'}
               hostName={hostName}
+              activeUsersCount={users.length}
               errorMessage={roomEventError}
             />
           </header>
@@ -341,6 +359,7 @@ function RoomPage() {
             <RoomTopBar
               roomName={room?.name || 'Sala'}
               hostName={hostName}
+              activeUsersCount={users.length}
               errorMessage={roomEventError}
             />
           </header>

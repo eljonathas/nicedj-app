@@ -1,156 +1,686 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { motion } from "framer-motion";
-import { Store, Coins, Package, Loader2, ShoppingBag } from "lucide-react";
-import { useState, useEffect } from "react";
-import { Button } from "../components/ui/Button";
-import { useEconomyStore } from "../stores/economyStore";
-import { useAuthStore } from "../stores/authStore";
+import { createFileRoute } from '@tanstack/react-router'
+import { motion } from 'framer-motion'
+import {
+  Check,
+  Coins,
+  Gem,
+  Loader2,
+  Lock,
+  ShoppingBag,
+  Sparkles,
+} from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Button } from '../components/ui/Button'
+import { SpriteAvatar } from '../components/ui/SpriteAvatar'
+import { getLevelProgress } from '../lib/progression'
+import { useAuthStore } from '../stores/authStore'
+import { type AvatarStoreItem, useEconomyStore } from '../stores/economyStore'
 
-export const Route = createFileRoute("/shop")({
-    component: ShopPage,
-});
+const ITEM_BATCH_SIZE = 24
+const LEVEL_GROUP_BATCH_SIZE = 3
 
-function ShopPage() {
-    const user = useAuthStore((s) => s.user);
-    const { balance, storeItems, inventory, loading, fetchBalance, fetchStore, fetchInventory, purchase } = useEconomyStore();
-    const [tab, setTab] = useState<"store" | "inventory">("store");
-    const [purchasing, setPurchasing] = useState<string | null>(null);
+export const Route = createFileRoute('/shop')({
+  component: ShopPage,
+})
 
-    useEffect(() => {
-        fetchStore();
-        if (user) {
-            fetchBalance();
-            fetchInventory();
-        }
-    }, [user]);
+export function ShopPage() {
+  const user = useAuthStore((state) => state.user)
+  const {
+    coins,
+    diamonds,
+    sections,
+    ownedAvatarIds,
+    equippedAvatarId,
+    loading,
+    fetchStore,
+    fetchWallet,
+    fetchInventory,
+    purchase,
+    equip,
+  } = useEconomyStore()
+  const [hoveredAvatarId, setHoveredAvatarId] = useState<string | null>(null)
+  const [activeItemId, setActiveItemId] = useState<string | null>(null)
+  const [activeSectionId, setActiveSectionId] = useState<
+    'free' | 'level' | 'premium' | null
+  >('free')
+  const [visibleItemCount, setVisibleItemCount] = useState(ITEM_BATCH_SIZE)
+  const [visibleLevelGroupCount, setVisibleLevelGroupCount] = useState(
+    LEVEL_GROUP_BATCH_SIZE,
+  )
+  const [pendingLevelScroll, setPendingLevelScroll] = useState<number | null>(
+    null,
+  )
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const levelGroupRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
-    const handlePurchase = async (itemId: string) => {
-        setPurchasing(itemId);
-        await purchase(itemId);
-        setPurchasing(null);
-    };
+  useEffect(() => {
+    if (!user) return
 
-    const ownedIds = new Set(inventory.map((i) => i.storeItemId));
+    void Promise.all([fetchStore(), fetchWallet(), fetchInventory()])
+  }, [fetchInventory, fetchStore, fetchWallet, user])
+
+  const ownedAvatarIdsSet = useMemo(
+    () => new Set(ownedAvatarIds),
+    [ownedAvatarIds],
+  )
+  const allItems = useMemo(
+    () => sections.flatMap((section) => section.items),
+    [sections],
+  )
+  const activeSection = useMemo(() => {
+    if (sections.length === 0) return null
 
     return (
-        <div className="flex-1 p-6 md:p-10 max-w-5xl mx-auto w-full">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-                {/* Header */}
-                <div className="flex items-end justify-between mb-8 border-b border-[var(--border-light)] pb-6">
-                    <div>
-                        <h1 className="text-3xl font-display font-bold tracking-tight text-white mb-2">Loja</h1>
-                        <p className="text-[var(--text-secondary)] text-[15px]">Avatares e cosméticos para personalizar seu perfil.</p>
-                    </div>
-                    {user && (
-                        <div className="flex items-center gap-2 bg-[var(--bg-elevated)] px-4 py-2 rounded-xl border border-[var(--border-light)]">
-                            <Coins className="w-4 h-4 text-[var(--warning)]" />
-                            <span className="text-[15px] font-semibold text-white">{balance}</span>
-                        </div>
-                    )}
-                </div>
+      sections.find((section) => section.id === activeSectionId) ??
+      sections.find((section) => section.id === 'free') ??
+      sections[0] ??
+      null
+    )
+  }, [activeSectionId, sections])
+  const equippedAvatar =
+    allItems.find((item) => item.id === equippedAvatarId) ?? null
+  const levelGroups = useMemo(() => {
+    if (activeSection?.id !== 'level') {
+      return []
+    }
 
-                {/* Tabs */}
-                <div className="flex bg-[var(--bg-tertiary)] rounded-lg p-0.5 mb-8 w-fit border border-[var(--border-light)]/30">
-                    <button
-                        onClick={() => setTab("store")}
-                        className={`flex items-center gap-2 px-4 py-1.5 text-[13px] font-semibold rounded-md transition-colors cursor-pointer border-0 ${tab === "store" ? "bg-[var(--bg-elevated)] text-white shadow-sm" : "bg-transparent text-[var(--text-muted)]"}`}
-                    >
-                        <Store className="w-3.5 h-3.5" />
-                        Loja
-                    </button>
-                    <button
-                        onClick={() => setTab("inventory")}
-                        className={`flex items-center gap-2 px-4 py-1.5 text-[13px] font-semibold rounded-md transition-colors cursor-pointer border-0 ${tab === "inventory" ? "bg-[var(--bg-elevated)] text-white shadow-sm" : "bg-transparent text-[var(--text-muted)]"}`}
-                    >
-                        <Package className="w-3.5 h-3.5" />
-                        Inventário
-                    </button>
-                </div>
+    const groups = new Map<number, AvatarStoreItem[]>()
+    for (const item of activeSection.items) {
+      const unlockLevel = item.unlockLevel ?? 1
+      const currentGroup = groups.get(unlockLevel) ?? []
+      currentGroup.push(item)
+      groups.set(unlockLevel, currentGroup)
+    }
 
-                {loading && (
-                    <div className="flex justify-center py-16">
-                        <Loader2 className="w-6 h-6 text-[var(--text-muted)] animate-spin" />
-                    </div>
-                )}
+    return Array.from(groups.entries())
+      .sort(([leftLevel], [rightLevel]) => leftLevel - rightLevel)
+      .map(([level, items]) => ({
+        level,
+        items,
+      }))
+  }, [activeSection])
+  const visibleItems = useMemo(() => {
+    if (!activeSection || activeSection.id === 'level') {
+      return []
+    }
 
-                {tab === "store" && !loading && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {storeItems.map((item, i) => (
-                            <motion.div
-                                key={item.id}
-                                initial={{ opacity: 0, scale: 0.98 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: i * 0.04 }}
-                                className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-light)] p-4 flex flex-col items-center text-center"
-                            >
-                                <div className="w-20 h-20 rounded-2xl bg-[var(--bg-tertiary)] border border-[var(--border-light)] flex items-center justify-center mb-3 overflow-hidden">
-                                    {item.imageUrl ? (
-                                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <ShoppingBag className="w-8 h-8 text-[var(--text-muted)] opacity-40" />
-                                    )}
-                                </div>
-                                <p className="text-[14px] font-semibold text-white mb-0.5">{item.name}</p>
-                                <p className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider mb-3">{item.type}</p>
-                                <div className="flex items-center gap-1 mb-3">
-                                    <Coins className="w-3.5 h-3.5 text-[var(--warning)]" />
-                                    <span className="text-[14px] font-bold text-white">{item.price}</span>
-                                </div>
-                                {ownedIds.has(item.id) ? (
-                                    <span className="text-[12px] text-[var(--success)] font-medium">Adquirido</span>
-                                ) : (
-                                    <Button
-                                        size="sm"
-                                        onClick={() => handlePurchase(item.id)}
-                                        isLoading={purchasing === item.id}
-                                        disabled={!user || balance < item.price}
-                                    >
-                                        Comprar
-                                    </Button>
-                                )}
-                            </motion.div>
-                        ))}
-                        {storeItems.length === 0 && (
-                            <div className="col-span-full text-center py-16 text-[var(--text-muted)]">
-                                <Store className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                                <p className="font-semibold text-white">Loja vazia</p>
-                                <p className="text-[13px] mt-1">Nenhum item disponível no momento.</p>
-                            </div>
-                        )}
-                    </div>
-                )}
+    return activeSection.items.slice(0, visibleItemCount)
+  }, [activeSection, visibleItemCount])
+  const visibleLevelGroups = useMemo(
+    () => levelGroups.slice(0, visibleLevelGroupCount),
+    [levelGroups, visibleLevelGroupCount],
+  )
+  const levelProgress = user
+    ? getLevelProgress(user.level, user.xp)
+    : { progressPct: 0, xpIntoLevel: 0, xpForNextLevel: 100 }
 
-                {tab === "inventory" && !loading && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {inventory.map((item, i) => (
-                            <motion.div
-                                key={item.id}
-                                initial={{ opacity: 0, scale: 0.98 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: i * 0.04 }}
-                                className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-light)] p-4 flex flex-col items-center text-center"
-                            >
-                                <div className="w-20 h-20 rounded-2xl bg-[var(--bg-tertiary)] border border-[var(--border-light)] flex items-center justify-center mb-3 overflow-hidden">
-                                    {item.imageUrl ? (
-                                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <Package className="w-8 h-8 text-[var(--text-muted)] opacity-40" />
-                                    )}
-                                </div>
-                                <p className="text-[14px] font-semibold text-white mb-0.5">{item.name}</p>
-                                <p className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider">{item.type}</p>
-                            </motion.div>
-                        ))}
-                        {inventory.length === 0 && (
-                            <div className="col-span-full text-center py-16 text-[var(--text-muted)]">
-                                <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                                <p className="font-semibold text-white">Inventário vazio</p>
-                                <p className="text-[13px] mt-1">Compre itens na loja para personalizar seu perfil.</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </motion.div>
+  useEffect(() => {
+    if (sections.length === 0) return
+
+    if (!sections.some((section) => section.id === activeSectionId)) {
+      setActiveSectionId(
+        sections.find((section) => section.id === 'free')?.id ??
+          sections[0]?.id ??
+          null,
+      )
+    }
+  }, [activeSectionId, sections])
+
+  useEffect(() => {
+    setVisibleItemCount(ITEM_BATCH_SIZE)
+    setVisibleLevelGroupCount(LEVEL_GROUP_BATCH_SIZE)
+    setHoveredAvatarId(null)
+  }, [activeSectionId])
+
+  useEffect(() => {
+    const node = loadMoreRef.current
+    if (!node || !activeSection) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) {
+          return
+        }
+
+        if (activeSection.id === 'level') {
+          setVisibleLevelGroupCount((current) =>
+            Math.min(current + LEVEL_GROUP_BATCH_SIZE, levelGroups.length),
+          )
+          return
+        }
+
+        setVisibleItemCount((current) =>
+          Math.min(current + ITEM_BATCH_SIZE, activeSection.items.length),
+        )
+      },
+      { rootMargin: '320px 0px' },
+    )
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [activeSection, levelGroups.length])
+
+  useEffect(() => {
+    if (pendingLevelScroll === null) return
+
+    const target = levelGroupRefs.current[pendingLevelScroll]
+    if (!target) return
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setPendingLevelScroll(null)
+  }, [pendingLevelScroll, visibleLevelGroups])
+
+  const handleItemAction = async (item: AvatarStoreItem) => {
+    if (!user) return
+
+    const isOwned = item.type === 'free' || ownedAvatarIdsSet.has(item.id)
+    setActiveItemId(item.id)
+
+    try {
+      if (isOwned) {
+        await equip(item.id)
+        return
+      }
+
+      await purchase(item.id)
+    } finally {
+      setActiveItemId(null)
+    }
+  }
+
+  if (!user) {
+    return (
+      <div className="mx-auto flex w-full max-w-4xl flex-1 items-center px-6 py-8 md:px-8">
+        <div className="w-full rounded-[1.8rem] border border-[var(--border-light)] bg-[linear-gradient(165deg,rgba(18,25,36,0.95),rgba(11,15,23,0.97))] p-8 text-center shadow-[0_24px_50px_rgba(0,0,0,0.35)]">
+          <ShoppingBag className="mx-auto h-10 w-10 text-[var(--accent-hover)]" />
+          <h1 className="mt-4 text-2xl font-bold text-white">
+            Loja de avatares
+          </h1>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
+            Entre na sua conta para comprar, equipar e evoluir sua colecao.
+          </p>
         </div>
-    );
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-5 py-6 md:px-8">
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="overflow-hidden rounded-[2rem] border border-[var(--border-light)] bg-[linear-gradient(145deg,rgba(18,26,38,0.98),rgba(10,15,22,0.96))] shadow-[0_28px_60px_rgba(0,0,0,0.32)]"
+      >
+        <div className="flex flex-col gap-5 p-5 md:flex-row md:items-center md:justify-between md:p-6">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="flex h-[88px] w-[88px] items-center justify-center rounded-[1.7rem] border border-[rgba(255,255,255,0.08)] bg-[radial-gradient(circle_at_top,rgba(30,215,96,0.2),rgba(12,18,28,0.96)_65%)]">
+              {user.avatar ? (
+                <SpriteAvatar
+                  src={user.avatar}
+                  alt={user.username}
+                  size={72}
+                  animate
+                  className="rounded-[1.2rem]"
+                />
+              ) : null}
+            </div>
+
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(30,215,96,0.18)] bg-[rgba(11,29,19,0.74)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-hover)]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Avatar Shop
+              </div>
+              <h1 className="mt-3 truncate text-2xl font-bold tracking-tight text-white">
+                {equippedAvatar?.name ?? 'Base 01'}
+              </h1>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                Equipada por {user.username}
+              </p>
+              <div className="mt-3 flex max-w-sm items-center gap-3">
+                <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  Lv {user.level}
+                </span>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[rgba(255,255,255,0.08)]">
+                  <div
+                    className="h-full rounded-full bg-[linear-gradient(90deg,#1db954,#6bffb0)]"
+                    style={{ width: `${levelProgress.progressPct}%` }}
+                  />
+                </div>
+                <span className="text-[11px] text-[var(--text-secondary)]">
+                  {levelProgress.xpForNextLevel - levelProgress.xpIntoLevel} XP
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <WalletStat
+              icon={Coins}
+              label="Coins"
+              value={coins}
+              tone="text-[#ffd166]"
+            />
+            <WalletStat
+              icon={Gem}
+              label="Diamonds"
+              value={diamonds}
+              tone="text-[#7de0ff]"
+            />
+          </div>
+        </div>
+      </motion.section>
+
+      {loading && sections.length === 0 ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          <div className="overflow-hidden rounded-[1.8rem] border border-[var(--border-light)] bg-[linear-gradient(165deg,rgba(18,25,36,0.94),rgba(10,15,22,0.96))] p-3 shadow-[0_20px_44px_rgba(0,0,0,0.22)]">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {sections.map((section) => {
+                const isActive = activeSection?.id === section.id
+                const isPremium = section.id === 'premium'
+
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => {
+                      setHoveredAvatarId(null)
+                      setActiveSectionId(section.id)
+                    }}
+                    className={[
+                      'group flex min-w-[158px] shrink-0 items-center justify-between gap-3 rounded-[1.2rem] border px-4 py-3 text-left transition-all',
+                      isPremium
+                        ? isActive
+                          ? 'border-[rgba(255,227,168,0.45)] bg-[linear-gradient(135deg,rgba(255,196,94,0.95),rgba(125,224,255,0.95))] text-[#081019] shadow-[0_18px_30px_rgba(70,163,210,0.22)]'
+                          : 'border-[rgba(255,227,168,0.18)] bg-[linear-gradient(135deg,rgba(82,56,18,0.7),rgba(18,54,66,0.72))] text-white hover:border-[rgba(255,227,168,0.34)]'
+                        : isActive
+                          ? 'border-[rgba(30,215,96,0.24)] bg-[rgba(14,24,18,0.92)] text-white shadow-[0_14px_24px_rgba(8,18,12,0.24)]'
+                          : 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] text-[var(--text-secondary)] hover:border-[rgba(255,255,255,0.14)] hover:text-white',
+                    ].join(' ')}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-[13px] font-semibold uppercase tracking-[0.12em]">
+                          {section.label}
+                        </span>
+                        {isPremium ? (
+                          <span
+                            className={[
+                              'inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em]',
+                              isActive
+                                ? 'bg-[rgba(8,16,25,0.16)] text-[#081019]'
+                                : 'bg-[rgba(255,255,255,0.08)] text-[#ffe7a8]',
+                            ].join(' ')}
+                          >
+                            Destaque
+                          </span>
+                        ) : null}
+                      </div>
+                      <p
+                        className={[
+                          'mt-1 truncate text-[11px]',
+                          isPremium && isActive
+                            ? 'text-[rgba(8,16,25,0.82)]'
+                            : 'text-[var(--text-muted)]',
+                        ].join(' ')}
+                      >
+                        {section.marker}
+                      </p>
+                    </div>
+                    <span
+                      className={[
+                        'rounded-full px-2.5 py-1 text-[10px] font-semibold',
+                        isPremium
+                          ? isActive
+                            ? 'bg-[rgba(8,16,25,0.16)] text-[#081019]'
+                            : 'bg-[rgba(255,255,255,0.06)] text-[#ffe7a8]'
+                          : isActive
+                            ? 'bg-[rgba(255,255,255,0.06)] text-white'
+                            : 'bg-[rgba(255,255,255,0.04)] text-[var(--text-muted)]',
+                      ].join(' ')}
+                    >
+                      {section.items.length}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {activeSection ? (
+            <motion.section
+              key={activeSection.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18 }}
+            >
+              <div className="mb-4 flex items-end justify-between gap-3">
+                <div>
+                  <div
+                    className={[
+                      'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]',
+                      activeSection.id === 'premium'
+                        ? 'border-[rgba(255,227,168,0.2)] bg-[rgba(82,56,18,0.42)] text-[#ffe7a8]'
+                        : 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] text-[var(--text-muted)]',
+                    ].join(' ')}
+                  >
+                    <span
+                      className={[
+                        'h-2 w-2 rounded-full',
+                        activeSection.id === 'premium'
+                          ? 'bg-[#ffd166]'
+                          : 'bg-[var(--accent)]',
+                      ].join(' ')}
+                    />
+                    {activeSection.marker}
+                  </div>
+                  <h2 className="mt-3 text-xl font-bold text-white">
+                    {activeSection.label}
+                  </h2>
+                </div>
+                <div className="text-right">
+                  <p className="text-[12px] text-[var(--text-secondary)]">
+                    {activeSection.id === 'level'
+                      ? `${visibleLevelGroups.reduce(
+                          (total, group) => total + group.items.length,
+                          0,
+                        )} de ${activeSection.items.length} avatares`
+                      : `${visibleItems.length} de ${activeSection.items.length} avatares`}
+                  </p>
+                </div>
+              </div>
+
+              {activeSection.id === 'level' ? (
+                <>
+                  <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+                    {levelGroups.map((group) => {
+                      const isVisible =
+                        group.level <= (visibleLevelGroups.at(-1)?.level ?? 0)
+                      return (
+                        <button
+                          key={group.level}
+                          type="button"
+                          onClick={() => {
+                            const targetIndex = levelGroups.findIndex(
+                              (entry) => entry.level === group.level,
+                            )
+                            setVisibleLevelGroupCount((current) =>
+                              Math.max(
+                                current,
+                                Math.min(levelGroups.length, targetIndex + 1),
+                              ),
+                            )
+                            setPendingLevelScroll(group.level)
+                          }}
+                          className={[
+                            'shrink-0 rounded-full border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors',
+                            group.level === pendingLevelScroll
+                              ? 'border-[rgba(30,215,96,0.28)] bg-[rgba(11,29,19,0.88)] text-[var(--accent-hover)]'
+                              : isVisible
+                                ? 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-white'
+                                : 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] text-[var(--text-muted)]',
+                          ].join(' ')}
+                        >
+                          Nivel {group.level}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <div className="flex flex-col gap-7">
+                    {visibleLevelGroups.map((group) => (
+                      <section
+                        key={group.level}
+                        ref={(node) => {
+                          levelGroupRefs.current[group.level] = node
+                        }}
+                        className="scroll-mt-6"
+                      >
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                              Secao de desbloqueio
+                            </p>
+                            <h3 className="mt-1 text-lg font-bold text-white">
+                              Nivel {group.level}
+                            </h3>
+                          </div>
+                          <span className="text-[12px] text-[var(--text-secondary)]">
+                            {group.items.length} avatares
+                          </span>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                          {group.items.map((item) => {
+                            const isOwned =
+                              item.type === 'free' ||
+                              ownedAvatarIdsSet.has(item.id)
+                            const isEquipped = equippedAvatarId === item.id
+                            const isLevelLocked =
+                              user.level < (item.unlockLevel ?? 1)
+                            const hasFunds = coins >= item.price
+
+                            return (
+                              <AvatarStoreCard
+                                key={item.id}
+                                item={item}
+                                isOwned={isOwned}
+                                isEquipped={isEquipped}
+                                isLevelLocked={isLevelLocked}
+                                hasFunds={hasFunds}
+                                isBusy={activeItemId === item.id}
+                                isHovered={hoveredAvatarId === item.id}
+                                onHoverChange={(hovered) =>
+                                  setHoveredAvatarId(hovered ? item.id : null)
+                                }
+                                onAction={() => void handleItemAction(item)}
+                              />
+                            )
+                          })}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {visibleItems.map((item) => {
+                    const isOwned =
+                      item.type === 'free' || ownedAvatarIdsSet.has(item.id)
+                    const isEquipped = equippedAvatarId === item.id
+                    const isLevelLocked =
+                      item.type === 'level' &&
+                      user.level < (item.unlockLevel ?? 1)
+                    const hasFunds =
+                      item.currency === 'diamonds'
+                        ? diamonds >= item.price
+                        : coins >= item.price
+
+                    return (
+                      <AvatarStoreCard
+                        key={item.id}
+                        item={item}
+                        isOwned={isOwned}
+                        isEquipped={isEquipped}
+                        isLevelLocked={isLevelLocked}
+                        hasFunds={hasFunds}
+                        isBusy={activeItemId === item.id}
+                        isHovered={hoveredAvatarId === item.id}
+                        onHoverChange={(hovered) =>
+                          setHoveredAvatarId(hovered ? item.id : null)
+                        }
+                        onAction={() => void handleItemAction(item)}
+                      />
+                    )
+                  })}
+                </div>
+              )}
+
+              {(activeSection.id === 'level' &&
+                visibleLevelGroups.length < levelGroups.length) ||
+              (activeSection.id !== 'level' &&
+                activeSection.items.length > visibleItems.length) ? (
+                <div
+                  ref={loadMoreRef}
+                  className="mt-6 h-12 w-full"
+                  aria-hidden="true"
+                >
+                  <div className="mx-auto h-1.5 w-24 rounded-full bg-[rgba(255,255,255,0.06)]" />
+                </div>
+              ) : null}
+            </motion.section>
+          ) : null}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WalletStat({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: typeof Coins
+  label: string
+  value: number
+  tone: string
+}) {
+  return (
+    <div className="min-w-[124px] rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(12,18,28,0.82)] px-4 py-3">
+      <div
+        className={`flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] ${tone}`}
+      >
+        <Icon className="h-4 w-4" />
+        {label}
+      </div>
+      <p className="mt-2 text-xl font-bold text-white">{value}</p>
+    </div>
+  )
+}
+
+function AvatarStoreCard({
+  item,
+  isOwned,
+  isEquipped,
+  isLevelLocked,
+  hasFunds,
+  isBusy,
+  isHovered,
+  onHoverChange,
+  onAction,
+}: {
+  item: AvatarStoreItem
+  isOwned: boolean
+  isEquipped: boolean
+  isLevelLocked: boolean
+  hasFunds: boolean
+  isBusy: boolean
+  isHovered: boolean
+  onHoverChange: (hovered: boolean) => void
+  onAction: () => void
+}) {
+  const actionLabel = isEquipped
+    ? 'Selecionado'
+    : isOwned
+      ? 'Usar avatar'
+      : 'Comprar'
+  const CurrencyIcon = item.currency === 'diamonds' ? Gem : Coins
+
+  return (
+    <div
+      tabIndex={0}
+      onMouseEnter={() => onHoverChange(true)}
+      onMouseLeave={() => onHoverChange(false)}
+      onFocus={() => onHoverChange(true)}
+      onBlur={() => onHoverChange(false)}
+      className="group relative overflow-hidden rounded-[1.7rem] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(165deg,rgba(20,27,38,0.94),rgba(11,16,24,0.96))] p-4 shadow-[0_18px_42px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[rgba(30,215,96,0.22)]"
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '320px' }}
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(30,215,96,0.12),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+      <div className="relative flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            {item.collection}
+          </p>
+          <h3 className="mt-1 text-lg font-bold text-white">{item.name}</h3>
+        </div>
+
+        {isEquipped ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(30,215,96,0.18)] bg-[rgba(11,29,19,0.74)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--accent-hover)]">
+            <Check className="h-3.5 w-3.5" />
+            Equipado
+          </span>
+        ) : isOwned ? (
+          <span className="inline-flex rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+            Adquirido
+          </span>
+        ) : null}
+      </div>
+
+      <div className="relative mt-3 flex min-h-[176px] items-center justify-center overflow-hidden rounded-[1.45rem] bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.12),rgba(14,20,30,0.18)_36%,transparent_72%)] px-2 py-2">
+        <SpriteAvatar
+          src={item.url}
+          alt={item.name}
+          size={132}
+          animate={isHovered}
+          lazy
+          className="drop-shadow-[0_20px_24px_rgba(0,0,0,0.48)]"
+        />
+
+        {isLevelLocked ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-[1.45rem] bg-[rgba(6,10,15,0.82)]">
+            <Lock className="h-5 w-5 text-white" />
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
+              Nivel {item.unlockLevel}
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="relative mt-4 flex items-center justify-between gap-3">
+        <div>
+          {item.currency === 'free' ? (
+            <p className="text-[12px] font-medium text-white">Liberado</p>
+          ) : (
+            <div className="flex items-center gap-2 text-[13px] font-semibold text-white">
+              <CurrencyIcon
+                className={`h-4 w-4 ${
+                  item.currency === 'diamonds'
+                    ? 'text-[#7de0ff]'
+                    : 'text-[#ffd166]'
+                }`}
+              />
+              <span>{item.price}</span>
+            </div>
+          )}
+          {isLevelLocked ? (
+            <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+              Nivel {item.unlockLevel}
+            </p>
+          ) : !isOwned && !hasFunds ? (
+            <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+              Saldo insuficiente
+            </p>
+          ) : null}
+        </div>
+
+        <Button
+          size="sm"
+          onClick={onAction}
+          isLoading={isBusy}
+          disabled={
+            isBusy || isEquipped || isLevelLocked || (!isOwned && !hasFunds)
+          }
+        >
+          {actionLabel}
+        </Button>
+      </div>
+    </div>
+  )
 }

@@ -6,9 +6,10 @@ import { Button } from "../components/ui/Button";
 import { Avatar } from "../components/ui/Avatar";
 import { useAuthStore } from "../stores/authStore";
 import { api } from "../lib/api";
+import { getLevelProgress } from "../lib/progression";
 
 export const Route = createFileRoute("/profile/$id")({
-    component: ProfilePage,
+    component: ProfileRoutePage,
 });
 
 interface UserProfile {
@@ -28,19 +29,37 @@ interface UserProfile {
     }>;
 }
 
-function ProfilePage() {
+function ProfileRoutePage() {
     const { id } = Route.useParams();
+    return <ProfilePage profileId={id} />;
+}
+
+export function ProfilePage({ profileId }: { profileId: string }) {
     const me = useAuthStore((s) => s.user);
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         setLoading(true);
-        api<UserProfile>(`/api/users/${id}`)
+        api<UserProfile>(`/api/users/${profileId}`)
             .then(setProfile)
             .catch(() => setProfile(null))
             .finally(() => setLoading(false));
-    }, [id]);
+    }, [profileId]);
+
+    useEffect(() => {
+        if (!me || me.id !== profileId) return;
+
+        setProfile((current) =>
+            current
+                ? {
+                    ...current,
+                    level: me.level,
+                    xp: me.xp,
+                }
+                : current
+        );
+    }, [me, profileId]);
 
     if (loading) {
         return (
@@ -59,8 +78,10 @@ function ProfilePage() {
     }
 
     const isMe = me?.id === profile.id;
-    const xpForNextLevel = profile.level * 500;
-    const xpProgress = Math.min((profile.xp / xpForNextLevel) * 100, 100);
+    const { xpIntoLevel, xpForNextLevel, progressPct } = getLevelProgress(
+        profile.level,
+        profile.xp,
+    );
 
     return (
         <div className="flex-1 p-6 md:p-10 max-w-3xl mx-auto w-full">
@@ -89,12 +110,12 @@ function ProfilePage() {
                     <div className="mt-5 max-w-xs mx-auto">
                         <div className="flex justify-between text-[11px] text-[var(--text-muted)] mb-1">
                             <span>{profile.xp} XP</span>
-                            <span>{xpForNextLevel} XP</span>
+                            <span>{xpIntoLevel}/{xpForNextLevel} XP</span>
                         </div>
                         <div className="h-2 rounded-full bg-[var(--bg-tertiary)]">
                             <motion.div
                                 initial={{ width: 0 }}
-                                animate={{ width: `${xpProgress}%` }}
+                                animate={{ width: `${progressPct}%` }}
                                 transition={{ duration: 0.6, ease: "easeOut" }}
                                 className="h-full rounded-full bg-[var(--accent)]"
                             />

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Lock, Play, Plus, Search, Users2, AudioLines } from "lucide-react";
 import { Button } from "../components/ui/Button";
+import { Avatar } from "../components/ui/Avatar";
 import { useAuthStore } from "../stores/authStore";
 import { api } from "../lib/api";
 import { CreateRoomModal } from "../components/room/CreateRoomModal";
@@ -17,11 +18,23 @@ interface RoomData {
   slug: string;
   description: string;
   ownerId: string;
+  ownerUsername: string;
   capacity: number;
   isPrivate: boolean;
+  activeUsersCount: number;
+  activeUsers: Array<{
+    id: string;
+    username: string;
+    avatar: string | null;
+  }>;
+  currentPlayback: {
+    title: string;
+    artist: string;
+    thumbnailUrl: string | null;
+  } | null;
 }
 
-function RoomsPage() {
+export function RoomsPage() {
   const [search, setSearch] = useState("");
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,9 +141,24 @@ function RoomsPage() {
                 className="group block overflow-hidden rounded-3xl border border-[var(--border-light)] bg-[linear-gradient(165deg,rgba(20,27,38,0.93),rgba(11,16,24,0.95))] p-5 transition-all hover:-translate-y-0.5 hover:border-[rgba(30,215,96,0.45)] hover:shadow-[0_20px_44px_rgba(2,7,16,0.55)]"
               >
                 <div className="flex items-start gap-4">
-                  <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-[var(--border-light)] bg-[rgba(16,24,34,0.95)]">
-                    <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_30%_20%,rgba(30,215,96,0.2),transparent_65%)] opacity-0 transition-opacity group-hover:opacity-100" />
-                    <Play className="relative h-6 w-6 text-[var(--accent-hover)]" />
+                  <div className="relative h-18 w-18 shrink-0 overflow-hidden rounded-2xl border border-[var(--border-light)] bg-[rgba(16,24,34,0.95)]">
+                    {room.currentPlayback?.thumbnailUrl ? (
+                      <img
+                        src={room.currentPlayback.thumbnailUrl}
+                        alt={room.currentPlayback.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_30%_20%,rgba(30,215,96,0.2),transparent_65%)] opacity-0 transition-opacity group-hover:opacity-100" />
+                        <Play className="relative h-6 w-6 text-[var(--accent-hover)]" />
+                      </div>
+                    )}
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,transparent,rgba(4,6,10,0.88))] px-2 py-1">
+                      <p className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--text-primary)]">
+                        {room.currentPlayback ? 'Ao vivo' : 'Sem set'}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -139,19 +167,56 @@ function RoomsPage() {
                       {room.isPrivate && <Lock className="h-3.5 w-3.5 text-[var(--warning)]" />}
                     </div>
 
-                    <p className="mt-1 line-clamp-2 text-sm text-[var(--text-secondary)]">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--text-muted)]">
+                      <span className="truncate">Host {room.ownerUsername}</span>
+                      <span className="text-[rgba(255,255,255,0.22)]">•</span>
+                      <span>{room.activeUsersCount} ativos</span>
+                    </div>
+
+                    <p className="mt-2 line-clamp-2 text-sm text-[var(--text-secondary)]">
                       {room.description || "Sala sem descrição. Entre para descobrir o som da comunidade."}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border-light)] bg-[rgba(14,20,30,0.82)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)]">
-                    <Users2 className="h-3.5 w-3.5 text-[var(--accent-alt)]" />
-                    Capacidade {room.capacity}
+                <div className="mt-4 flex items-end justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                      Tocando agora
+                    </p>
+                    <p className="truncate text-[13px] font-semibold text-white">
+                      {room.currentPlayback?.title ?? 'Sem set no ar'}
+                    </p>
+                    <p className="truncate text-[11px] text-[var(--text-secondary)]">
+                      {room.currentPlayback?.artist ?? 'Aguardando o próximo DJ'}
+                    </p>
                   </div>
 
-                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-hover)]">Entrar</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center">
+                      {room.activeUsers.slice(0, 4).map((activeUser, avatarIndex) => (
+                        <div
+                          key={activeUser.id}
+                          className={avatarIndex === 0 ? '' : '-ml-2'}
+                        >
+                          <Avatar
+                            username={activeUser.username}
+                            src={activeUser.avatar}
+                            size="sm"
+                            className="h-7 w-7 border border-[rgba(8,12,18,0.9)] ring-0"
+                          />
+                        </div>
+                      ))}
+                      {room.activeUsersCount === 0 && (
+                        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border-light)] bg-[rgba(14,20,30,0.82)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)]">
+                          <Users2 className="h-3.5 w-3.5 text-[var(--accent-alt)]" />
+                          Vazia
+                        </div>
+                      )}
+                    </div>
+
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-hover)]">Entrar</span>
+                  </div>
                 </div>
               </Link>
             </motion.div>

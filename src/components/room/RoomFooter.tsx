@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getPlaybackPositionMs } from '../../lib/playback'
+import { getLevelProgress } from '../../lib/progression'
 import { useAuthStore } from '../../stores/authStore'
 import { usePlaylistStore } from '../../stores/playlistStore'
 import { useRoomStore } from '../../stores/roomStore'
@@ -20,10 +21,12 @@ import { Avatar } from '../ui/Avatar'
 export function RoomTopBar({
   roomName,
   hostName,
+  activeUsersCount,
   errorMessage,
 }: {
   roomName: string
   hostName: string
+  activeUsersCount: number
   errorMessage?: string | null
 }) {
   const playback = useRoomStore((s) => s.playback)
@@ -50,8 +53,10 @@ export function RoomTopBar({
         <p className="truncate text-lg font-semibold tracking-tight text-white">
           {roomName}
         </p>
-        <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--text-muted)]">
           <span className="truncate">Host {hostName}</span>
+          <span className="text-[rgba(255,255,255,0.22)]">•</span>
+          <span>{activeUsersCount} ao vivo</span>
           {errorMessage ? (
             <span className="truncate rounded-full border border-[rgba(255,97,88,0.26)] bg-[rgba(68,17,19,0.78)] px-2 py-0.5 text-[10px] font-semibold text-[rgba(255,214,211,0.94)]">
               {errorMessage}
@@ -264,13 +269,10 @@ export function RoomProfileDock({
   collapsed?: boolean
 }) {
   const user = useAuthStore((s) => s.user)
-  const queue = useRoomStore((s) => s.queue)
-  const playbackDjId = useRoomStore((s) => s.playback?.djId)
 
   if (!user) return null
 
-  const queuePosition = queue.findIndex((item) => item === user.id)
-  const isCurrentDj = playbackDjId === user.id
+  const { progressPct, nextThreshold } = getLevelProgress(user.level, user.xp)
 
   if (collapsed) {
     return (
@@ -285,12 +287,6 @@ export function RoomProfileDock({
     )
   }
 
-  const status = isCurrentDj
-    ? 'No booth agora'
-    : queuePosition >= 0
-      ? `Na fila • posição ${queuePosition + 1}`
-      : 'Pronto para o próximo set'
-
   return (
     <div className="flex items-center gap-3 px-4 h-[78px]">
       <Link to="/profile/$id" params={{ id: user.id }} className="shrink-0">
@@ -303,12 +299,24 @@ export function RoomProfileDock({
       </Link>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-semibold text-white">
-          {user.username}
-        </p>
-        <p className="truncate text-[11px] text-[var(--text-muted)]">
-          {status}
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="truncate text-[13px] font-semibold text-white">
+            {user.username}
+          </p>
+          <span className="rounded-full border text-[10px] border-[rgba(55,210,124,0.18)] bg-[rgba(11,29,19,0.72)] px-2 py-0.5 font-semibold uppercase tracking-[0.12em] text-[var(--accent-hover)]">
+            Lv {user.level}
+          </span>
+        </div>
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[rgba(255,255,255,0.08)]">
+          <div
+            className="h-full rounded-full bg-[linear-gradient(90deg,var(--accent),#8fffb8)]"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+        <div className="mt-1.5 flex items-center justify-between truncate text-[10px] text-(--text-muted)">
+          <span>{user.xp} XP</span>
+          <span>{nextThreshold} XP</span>
+        </div>
       </div>
 
       <Link

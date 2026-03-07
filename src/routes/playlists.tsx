@@ -3,16 +3,16 @@ import { motion } from 'framer-motion'
 import {
   ArrowDown,
   ArrowUp,
-  Search,
   Check,
   Disc3,
   Link2,
   ListMusic,
   Loader2,
   Plus,
+  Search,
   Trash2,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { api } from '../lib/api'
@@ -29,7 +29,7 @@ function looksLikeMediaUrl(value: string) {
   )
 }
 
-function PlaylistsPage() {
+export function PlaylistsPage() {
   type SearchResult = {
     sourceId: string
     source: 'youtube' | 'soundcloud'
@@ -215,9 +215,14 @@ function PlaylistsPage() {
   const mediaInputTrimmed = mediaInput.trim()
   const mediaInputIsUrl = looksLikeMediaUrl(mediaInputTrimmed)
   const mediaBusy = searchLoading || submittingMedia
+  const trackSourceKeys = useMemo(
+    () =>
+      new Set(tracks.map((track) => `${track.source}:${track.sourceId}`)),
+    [tracks],
+  )
 
   return (
-    <div className="flex h-screen flex-1 flex-col overflow-hidden md:flex-row">
+    <div className="flex min-h-full flex-1 flex-col overflow-hidden md:flex-row">
       <div className="flex w-full shrink-0 flex-col border-r border-[var(--border-light)] bg-[var(--bg-secondary)] md:w-72">
         <div className="border-b border-[var(--border-light)] p-4">
           <h2 className="mb-3 text-lg font-bold text-white">
@@ -353,8 +358,10 @@ function PlaylistsPage() {
                   {mediaNotice}
                 </div>
               )}
+            </div>
 
-              <div className="mt-4 space-y-2">
+            <div className="flex-1 overflow-y-auto">
+              <div className="space-y-4 px-6 py-4">
                 {searchLoading && (
                   <div className="flex items-center gap-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.7)] px-4 py-3 text-[13px] text-[var(--text-secondary)]">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -363,46 +370,89 @@ function PlaylistsPage() {
                 )}
 
                 {!searchLoading && searchResults.length > 0 && (
-                  <div className="space-y-2">
-                    {searchResults.map((result) => (
-                      <div
-                        key={result.sourceId}
-                        className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.72)] px-3 py-3"
-                      >
-                        {result.thumbnailUrl ? (
-                          <img
-                            src={result.thumbnailUrl}
-                            alt=""
-                            className="h-14 w-14 rounded-xl object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[rgba(255,255,255,0.05)]">
-                            <Disc3 className="h-5 w-5 text-[var(--text-muted)]" />
-                          </div>
-                        )}
-
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[14px] font-semibold text-white">
-                            {result.title}
-                          </p>
-                          <p className="truncate text-[12px] text-[var(--text-secondary)]">
-                            {result.artist}
-                          </p>
-                          <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                            Detalhes completos ao adicionar
-                          </p>
-                        </div>
-
-                        <Button
-                          size="sm"
-                          onClick={() => void handleAddSearchResult(result)}
-                          isLoading={addingSearchResultId === result.sourceId}
-                        >
-                          Adicionar
-                        </Button>
+                  <section className="rounded-[1.75rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.68)] p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                          Resultados
+                        </p>
+                        <p className="text-[13px] text-[var(--text-secondary)]">
+                          Adicione faixas novas sem perder a visão da playlist.
+                        </p>
                       </div>
-                    ))}
-                  </div>
+                      <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(12,18,27,0.82)] px-2 text-[11px] font-semibold text-white">
+                        {searchResults.length}
+                      </span>
+                    </div>
+
+                    <div className="grid max-h-[320px] gap-2 overflow-y-auto pr-1 xl:grid-cols-2">
+                      {searchResults.map((result) => {
+                        const isSelected = trackSourceKeys.has(
+                          `${result.source}:${result.sourceId}`,
+                        )
+
+                        return (
+                          <div
+                            key={result.sourceId}
+                            className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${
+                              isSelected
+                                ? 'border-[rgba(55,210,124,0.24)] bg-[rgba(11,29,19,0.78)]'
+                                : 'border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.72)]'
+                            }`}
+                          >
+                            {result.thumbnailUrl ? (
+                              <img
+                                src={result.thumbnailUrl}
+                                alt=""
+                                className="h-14 w-14 rounded-xl object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[rgba(255,255,255,0.05)]">
+                                <Disc3 className="h-5 w-5 text-[var(--text-muted)]" />
+                              </div>
+                            )}
+
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[14px] font-semibold text-white">
+                                {result.title}
+                              </p>
+                              <p className="truncate text-[12px] text-[var(--text-secondary)]">
+                                {result.artist}
+                              </p>
+                              <p
+                                className={`mt-1 text-[11px] ${
+                                  isSelected
+                                    ? 'text-[var(--accent-hover)]'
+                                    : 'text-[var(--text-muted)]'
+                                }`}
+                              >
+                                {isSelected
+                                  ? 'Esta faixa ja esta na playlist.'
+                                  : 'Detalhes completos ao adicionar'}
+                              </p>
+                            </div>
+
+                            {isSelected ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(55,210,124,0.26)] bg-[rgba(11,29,19,0.82)] px-3 py-1.5 text-[11px] font-semibold text-[var(--accent-hover)]">
+                                <Check className="h-3.5 w-3.5" />
+                                Na playlist
+                              </span>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => void handleAddSearchResult(result)}
+                                isLoading={
+                                  addingSearchResultId === result.sourceId
+                                }
+                              >
+                                Adicionar
+                              </Button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </section>
                 )}
 
                 {!searchLoading &&
@@ -414,100 +464,108 @@ function PlaylistsPage() {
                       Nenhum vídeo encontrado para essa busca.
                     </div>
                   )}
-              </div>
-            </div>
 
-            <div className="flex-1">
-              {tracks.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--bg-elevated)]">
-                    <Disc3 className="h-7 w-7 text-[var(--text-muted)] opacity-50" />
+                {tracks.length === 0 ? (
+                  <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[1.75rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.42)] px-4 text-center">
+                    <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--bg-elevated)]">
+                      <Disc3 className="h-7 w-7 text-[var(--text-muted)] opacity-50" />
+                    </div>
+                    <p className="text-[15px] font-semibold text-white">
+                      Playlist vazia
+                    </p>
+                    <p className="mt-1 text-[13px] text-[var(--text-secondary)]">
+                      Use a busca acima ou cole um link para começar a montar o
+                      set.
+                    </p>
                   </div>
-                  <p className="text-[15px] font-semibold text-white">
-                    Playlist vazia
-                  </p>
-                  <p className="mt-1 text-[13px] text-[var(--text-secondary)]">
-                    Use a busca acima ou cole um link para começar a montar o
-                    set.
-                  </p>
-                </div>
-              ) : (
-                <div className="divide-y divide-[var(--border-light)]">
-                  {tracks.map((track, index) => (
-                    <motion.div
-                      key={track.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: index * 0.025 }}
-                      className="group flex items-center gap-4 px-6 py-3 transition-colors hover:bg-[var(--bg-hover)]"
-                    >
-                      <span className="w-6 text-right text-[12px] font-medium text-[var(--text-muted)]">
-                        {index + 1}
-                      </span>
+                ) : (
+                  <div className="overflow-hidden rounded-[1.75rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.38)]">
+                    <div className="border-b border-[var(--border-light)] px-6 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                        Faixas da playlist
+                      </p>
+                    </div>
 
-                      {track.thumbnailUrl ? (
-                        <img
-                          src={track.thumbnailUrl}
-                          alt=""
-                          className="h-11 w-11 rounded-xl object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--bg-tertiary)]">
-                          <Disc3 className="h-4 w-4 text-[var(--text-muted)]" />
-                        </div>
-                      )}
-
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-medium text-white">
-                          {track.title}
-                        </p>
-                        <p className="truncate text-[12px] text-[var(--text-secondary)]">
-                          {track.artist}
-                        </p>
-                      </div>
-
-                      <span className="hidden rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(12,18,27,0.82)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)] sm:inline-flex">
-                        {track.source}
-                      </span>
-
-                      <span className="text-[12px] text-[var(--text-muted)]">
-                        {Math.floor(track.durationMs / 60000)}:
-                        {String(
-                          Math.floor((track.durationMs % 60000) / 1000),
-                        ).padStart(2, '0')}
-                      </span>
-
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => void handleMoveTrack(index, -1)}
-                          disabled={index === 0 || reordering}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(11,16,24,0.84)] text-[var(--text-secondary)] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                          aria-label="Mover para cima"
+                    <div className="divide-y divide-[var(--border-light)]">
+                      {tracks.map((track, index) => (
+                        <motion.div
+                          key={track.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: index * 0.025 }}
+                          className="group flex items-center gap-4 px-6 py-3 transition-colors hover:bg-[var(--bg-hover)]"
                         >
-                          <ArrowUp className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => void handleMoveTrack(index, 1)}
-                          disabled={index === tracks.length - 1 || reordering}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(11,16,24,0.84)] text-[var(--text-secondary)] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                          aria-label="Mover para baixo"
-                        >
-                          <ArrowDown className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() =>
-                            void removeTrack(selected.id, track.id)
-                          }
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(255,97,88,0.16)] bg-[rgba(44,14,16,0.86)] text-[var(--danger)] transition-colors hover:text-red-300"
-                          aria-label="Remover faixa"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
+                          <span className="w-6 text-right text-[12px] font-medium text-[var(--text-muted)]">
+                            {index + 1}
+                          </span>
+
+                          {track.thumbnailUrl ? (
+                            <img
+                              src={track.thumbnailUrl}
+                              alt=""
+                              className="h-11 w-11 rounded-xl object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--bg-tertiary)]">
+                              <Disc3 className="h-4 w-4 text-[var(--text-muted)]" />
+                            </div>
+                          )}
+
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[14px] font-medium text-white">
+                              {track.title}
+                            </p>
+                            <p className="truncate text-[12px] text-[var(--text-secondary)]">
+                              {track.artist}
+                            </p>
+                          </div>
+
+                          <span className="hidden rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(12,18,27,0.82)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)] sm:inline-flex">
+                            {track.source}
+                          </span>
+
+                          <span className="text-[12px] text-[var(--text-muted)]">
+                            {Math.floor(track.durationMs / 60000)}:
+                            {String(
+                              Math.floor((track.durationMs % 60000) / 1000),
+                            ).padStart(2, '0')}
+                          </span>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => void handleMoveTrack(index, -1)}
+                              disabled={index === 0 || reordering}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(11,16,24,0.84)] text-[var(--text-secondary)] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                              aria-label="Mover para cima"
+                            >
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => void handleMoveTrack(index, 1)}
+                              disabled={
+                                index === tracks.length - 1 || reordering
+                              }
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(11,16,24,0.84)] text-[var(--text-secondary)] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                              aria-label="Mover para baixo"
+                            >
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() =>
+                                void removeTrack(selected.id, track.id)
+                              }
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(255,97,88,0.16)] bg-[rgba(44,14,16,0.86)] text-[var(--danger)] transition-colors hover:text-red-300"
+                              aria-label="Remover faixa"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </>
         ) : (

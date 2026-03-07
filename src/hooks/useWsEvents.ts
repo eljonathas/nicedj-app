@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useChatStore } from "../stores/chatStore";
 import { useAuthStore } from "../stores/authStore";
+import { useEconomyStore } from "../stores/economyStore";
 import { useRoomStore } from "../stores/roomStore";
 import type { WsClient } from "../lib/ws";
 
@@ -30,6 +31,7 @@ export function useWsEvents(wsClient: WsClient | null) {
           slug: payload.roomSlug ?? currentRoom?.slug ?? "",
           description: payload.roomDescription ?? currentRoom?.description ?? "",
           ownerId: currentRoom?.ownerId ?? "",
+          ownerUsername: currentRoom?.ownerUsername ?? "host",
         });
 
         setUsers(payload.users || []);
@@ -141,6 +143,48 @@ export function useWsEvents(wsClient: WsClient | null) {
     unsubs.push(
       wsClient.on("dj_changed", (payload: any) => {
         if (payload.queue) syncQueue(payload.queue);
+      })
+    );
+
+    unsubs.push(
+      wsClient.on("xp_updated", (payload: any) => {
+        if (
+          typeof payload?.level === "number" &&
+          typeof payload?.xp === "number"
+        ) {
+          useAuthStore.getState().applyProgression({
+            level: payload.level,
+            xp: payload.xp,
+          });
+        }
+      })
+    );
+
+    unsubs.push(
+      wsClient.on("level_up", (payload: any) => {
+        if (
+          typeof payload?.level === "number" &&
+          typeof payload?.xp === "number"
+        ) {
+          useAuthStore.getState().applyProgression({
+            level: payload.level,
+            xp: payload.xp,
+          });
+        }
+      })
+    );
+
+    unsubs.push(
+      wsClient.on("wallet_updated", (payload: any) => {
+        if (
+          typeof payload?.coins === "number" &&
+          typeof payload?.diamonds === "number"
+        ) {
+          useEconomyStore.getState().applyWalletUpdate({
+            coins: payload.coins,
+            diamonds: payload.diamonds,
+          });
+        }
       })
     );
 

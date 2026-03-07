@@ -81,15 +81,6 @@ export function Stage({ users, djId }: StageProps) {
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(7,10,16,0.62)_0%,rgba(8,12,18,0.38)_35%,rgba(8,11,17,0.72)_100%)]" />
       <div className="pointer-events-none absolute inset-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),inset_0_-100px_120px_rgba(0,0,0,0.64)]" />
 
-      <div className="pointer-events-none absolute left-1/2 top-2 z-[120] -translate-x-1/2">
-        <div className="rounded-full border border-[rgba(255,255,255,0.14)] bg-[rgba(8,12,18,0.78)] px-3 py-1 shadow-[0_14px_28px_rgba(0,0,0,0.42)] backdrop-blur-[6px]">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-            Usuários {Math.min(users.length, MAX_STAGE_CHARACTERS)}/
-            {MAX_STAGE_CHARACTERS}
-          </p>
-        </div>
-      </div>
-
       <div className="pointer-events-none absolute inset-0 max-w-8/12 mx-auto">
         {crowdLayout.map((entry) => (
           <SpriteCharacter
@@ -145,11 +136,11 @@ function SpriteCharacter({
   isDj?: boolean
 }) {
   const seed = hashToInt(user.id)
-  const spriteSheet = SPRITE_SHEETS[seed % SPRITE_SHEETS.length]
+  const spriteSheet = resolveSpriteSheet(user.avatar, seed)
   const fps = isDj ? DJ_WOOT_FPS : WOOT_FPS
   const frame = isWooting
     ? Math.floor(((nowMs + (seed % 1200)) / 1000) * fps) % SPRITE_FRAME_COUNT
-    : seed % SPRITE_FRAME_COUNT
+    : 0
   const bounce = isWooting ? Math.sin((nowMs + seed) / 92) * (isDj ? 8 : 6) : 0
   const lean = isWooting ? Math.sin((nowMs + seed) / 170) * (isDj ? 4 : 3) : 0
   const brightness = isWooting ? 1.08 : 1
@@ -207,6 +198,14 @@ function SpriteCharacter({
       </div>
     </div>
   )
+}
+
+function resolveSpriteSheet(avatar: string | null, seed: number) {
+  if (avatar?.includes('/sprites/')) {
+    return avatar
+  }
+
+  return SPRITE_SHEETS[seed % SPRITE_SHEETS.length]
 }
 
 function buildCrowdLayout(users: StageUser[]): PositionedUser[] {
