@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { motion } from 'framer-motion'
 import {
-  ArrowDown,
-  ArrowUp,
   Check,
+  ChevronsUp,
   Disc3,
+  GripVertical,
   Link2,
   ListMusic,
   Loader2,
@@ -13,6 +13,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import type { DragEvent } from 'react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { api } from '../lib/api'
@@ -66,6 +67,11 @@ export function PlaylistsPage() {
   >(null)
   const [submittingMedia, setSubmittingMedia] = useState(false)
   const [reordering, setReordering] = useState(false)
+  const [draggedTrackId, setDraggedTrackId] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<{
+    trackId: string
+    placement: 'before' | 'after'
+  } | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -173,32 +179,108 @@ export function PlaylistsPage() {
     }
   }
 
-  const handleMoveTrack = async (index: number, direction: -1 | 1) => {
-    if (!selectedId || reordering) return
-
-    const targetIndex = index + direction
-    if (targetIndex < 0 || targetIndex >= tracks.length) return
-
-    const nextTracks = [...tracks]
-    const [movedTrack] = nextTracks.splice(index, 1)
-    nextTracks.splice(targetIndex, 0, movedTrack)
-
-    setReordering(true)
-    try {
-      await reorderTracks(
-        selectedId,
-        nextTracks.map((track) => track.id),
-      )
-    } finally {
-      setReordering(false)
-    }
-  }
-
   const handleDeletePlaylist = async (playlistId: string) => {
     await deletePlaylist(playlistId)
     setMediaInput('')
     setMediaError(null)
     setSearchResults([])
+  }
+
+  const commitTrackOrder = async (nextTrackIds: string[]) => {
+    if (!selectedId || reordering) return
+
+    const currentTrackIds = tracks.map((track) => track.id)
+    const hasChanged = nextTrackIds.some(
+      (trackId, index) => trackId !== currentTrackIds[index],
+    )
+
+    if (!hasChanged) return
+
+    setReordering(true)
+    try {
+      await reorderTracks(selectedId, nextTrackIds)
+    } finally {
+      setReordering(false)
+    }
+  }
+
+  const handleMoveTrackToFirst = async (trackId: string) => {
+    if (!selectedId || reordering || tracks[0]?.id === trackId) return
+
+    const nextTrackIds = [
+      trackId,
+      ...tracks.filter((track) => track.id !== trackId).map((track) => track.id),
+    ]
+
+    await commitTrackOrder(nextTrackIds)
+  }
+
+  const handleTrackDragStart = (
+    event: DragEvent<HTMLDivElement>,
+    trackId: string,
+  ) => {
+    if (reordering) return
+
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', trackId)
+    setDraggedTrackId(trackId)
+    setDropTarget(null)
+  }
+
+  const handleTrackDragEnd = () => {
+    setDraggedTrackId(null)
+    setDropTarget(null)
+  }
+
+  const handleTrackDragOver = (
+    event: DragEvent<HTMLDivElement>,
+    trackId: string,
+  ) => {
+    if (!draggedTrackId || draggedTrackId === trackId || reordering) return
+
+    event.preventDefault()
+
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const offsetY = event.clientY - bounds.top
+    const placement = offsetY < bounds.height / 2 ? 'before' : 'after'
+
+    setDropTarget((current) => {
+      if (
+        current?.trackId === trackId &&
+        current.placement === placement
+      ) {
+        return current
+      }
+
+      return {
+        trackId,
+        placement,
+      }
+    })
+  }
+
+  const handleTrackDrop = async (
+    event: DragEvent<HTMLDivElement>,
+    targetTrackId: string,
+  ) => {
+    event.preventDefault()
+
+    if (!selectedId || !draggedTrackId || reordering) {
+      handleTrackDragEnd()
+      return
+    }
+
+    const placement =
+      dropTarget?.trackId === targetTrackId ? dropTarget.placement : 'before'
+    const nextTrackIds = reorderTrackIds(
+      tracks.map((track) => track.id),
+      draggedTrackId,
+      targetTrackId,
+      placement,
+    )
+
+    await commitTrackOrder(nextTrackIds)
+    handleTrackDragEnd()
   }
 
   if (!user) {
@@ -493,8 +575,49 @@ export function PlaylistsPage() {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: index * 0.025 }}
-                          className="group flex items-center gap-4 px-6 py-3 transition-colors hover:bg-[var(--bg-hover)]"
+                          onDragOver={(event) =>
+                            handleTrackDragOver(event, track.id)
+                          }
+                          onDrop={(event) => void handleTrackDrop(event, track.id)}
+                          onDragLeave={(event) => {
+                            const nextTarget = event.relatedTarget as Node | null
+                            if (!event.currentTarget.contains(nextTarget)) {
+                              setDropTarget((current) =>
+                                current?.trackId === track.id ? null : current,
+                              )
+                            }
+                          }}
+                          className={`group relative flex items-center gap-4 px-6 py-3 transition-colors hover:bg-[var(--bg-hover)] ${
+                            draggedTrackId === track.id ? 'opacity-55' : ''
+                          }`}
                         >
+                          {dropTarget?.trackId === track.id &&
+                          dropTarget.placement === 'before' ? (
+                            <div className="pointer-events-none absolute inset-x-4 top-0 h-[2px] rounded-full bg-[var(--accent)] shadow-[0_0_0_1px_rgba(55,210,124,0.18)]" />
+                          ) : null}
+
+                          {dropTarget?.trackId === track.id &&
+                          dropTarget.placement === 'after' ? (
+                            <div className="pointer-events-none absolute inset-x-4 bottom-0 h-[2px] rounded-full bg-[var(--accent)] shadow-[0_0_0_1px_rgba(55,210,124,0.18)]" />
+                          ) : null}
+
+                          <div
+                            draggable={!reordering}
+                            onDragStart={(event) =>
+                              handleTrackDragStart(event, track.id)
+                            }
+                            onDragEnd={handleTrackDragEnd}
+                            className={`flex h-9 w-7 shrink-0 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(11,16,24,0.84)] text-[var(--text-muted)] ${
+                              reordering
+                                ? 'cursor-not-allowed opacity-40'
+                                : 'cursor-grab active:cursor-grabbing'
+                            }`}
+                            aria-label="Arrastar para reordenar"
+                            title="Arrastar para reordenar"
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </div>
+
                           <span className="w-6 text-right text-[12px] font-medium text-[var(--text-muted)]">
                             {index + 1}
                           </span>
@@ -533,22 +656,13 @@ export function PlaylistsPage() {
 
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => void handleMoveTrack(index, -1)}
+                              onClick={() => void handleMoveTrackToFirst(track.id)}
                               disabled={index === 0 || reordering}
                               className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(11,16,24,0.84)] text-[var(--text-secondary)] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                              aria-label="Mover para cima"
+                              aria-label="Mover para o topo"
+                              title="Mover para o topo"
                             >
-                              <ArrowUp className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => void handleMoveTrack(index, 1)}
-                              disabled={
-                                index === tracks.length - 1 || reordering
-                              }
-                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(11,16,24,0.84)] text-[var(--text-secondary)] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                              aria-label="Mover para baixo"
-                            >
-                              <ArrowDown className="h-3.5 w-3.5" />
+                              <ChevronsUp className="h-3.5 w-3.5" />
                             </button>
                             <button
                               onClick={() =>
@@ -578,4 +692,26 @@ export function PlaylistsPage() {
       </div>
     </div>
   )
+}
+
+function reorderTrackIds(
+  trackIds: string[],
+  draggedTrackId: string,
+  targetTrackId: string,
+  placement: 'before' | 'after',
+) {
+  if (draggedTrackId === targetTrackId) {
+    return trackIds
+  }
+
+  const nextTrackIds = trackIds.filter((trackId) => trackId !== draggedTrackId)
+  const targetIndex = nextTrackIds.indexOf(targetTrackId)
+
+  if (targetIndex < 0) {
+    return trackIds
+  }
+
+  const insertAt = placement === 'before' ? targetIndex : targetIndex + 1
+  nextTrackIds.splice(insertAt, 0, draggedTrackId)
+  return nextTrackIds
 }

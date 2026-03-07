@@ -16,6 +16,7 @@ const ROOM_SCOPED_COMMANDS = new Set([
     "vote",
     "join_queue",
     "leave_queue",
+    "reorder_queue",
     "enqueue_track",
     "remove_from_playlist",
     "reorder_playlist",

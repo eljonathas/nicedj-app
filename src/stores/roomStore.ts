@@ -5,6 +5,7 @@ interface RoomUser {
     username: string;
     avatar: string | null;
     role: string;
+    platformRole?: string | null;
 }
 
 interface Playback {
@@ -38,6 +39,7 @@ interface RoomInfo {
     description: string;
     ownerId: string;
     ownerUsername?: string;
+    queueLocked?: boolean;
 }
 
 interface ActiveRoomShortcut {

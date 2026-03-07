@@ -8,6 +8,7 @@ interface User {
     email: string;
     avatarId?: string | null;
     avatar?: string | null;
+    platformRole?: string | null;
     level: number;
     xp: number;
 }
@@ -62,6 +63,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 email: string;
                 avatarId: string | null;
                 avatar: string | null;
+                platformRole: string | null;
                 level: number;
                 xp: number;
             }>("/api/auth/me", { token });
@@ -76,6 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     email: result.email,
                     avatarId: result.avatarId,
                     avatar: result.avatar,
+                    platformRole: result.platformRole,
                     level: result.level,
                     xp: result.xp,
                 },

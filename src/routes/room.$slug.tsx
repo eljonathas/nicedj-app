@@ -41,6 +41,7 @@ interface RoomData {
   ownerUsername: string
   capacity: number
   isPrivate: boolean
+  queueLocked?: boolean
 }
 
 function RoomPage() {
@@ -85,6 +86,7 @@ function RoomPage() {
           description: data.description,
           ownerId: data.ownerId,
           ownerUsername: data.ownerUsername,
+          queueLocked: data.queueLocked ?? false,
         })
       } catch (err: any) {
         setRoomError(err.message || 'Sala indisponível.')

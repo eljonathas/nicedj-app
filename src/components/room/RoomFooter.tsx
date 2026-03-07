@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router'
 import {
   Disc3,
   ListMusic,
@@ -16,6 +15,7 @@ import { getLevelProgress } from '../../lib/progression'
 import { useAuthStore } from '../../stores/authStore'
 import { usePlaylistStore } from '../../stores/playlistStore'
 import { useRoomStore } from '../../stores/roomStore'
+import { useUIStore } from '../../stores/uiStore'
 import { Avatar } from '../ui/Avatar'
 
 export function RoomTopBar({
@@ -114,6 +114,7 @@ export function RoomTopBar({
 export function RoomPlaylistDock() {
   const user = useAuthStore((s) => s.user)
   const playbackTrackId = useRoomStore((s) => s.playback?.trackId)
+  const openFloatingPanel = useUIStore((s) => s.openFloatingPanel)
   const {
     playlists,
     tracks,
@@ -200,13 +201,14 @@ export function RoomPlaylistDock() {
                 ))}
               </select>
             </div>
-            <Link
-              to="/playlists"
+            <button
+              type="button"
+              onClick={() => openFloatingPanel('playlists')}
               title="Editar playlists"
               className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] text-[var(--text-secondary)] transition-colors hover:text-white"
             >
               <PencilLine className="h-3.5 w-3.5" />
-            </Link>
+            </button>
           </div>
         ) : (
           <div className="flex h-11 items-center gap-2 rounded-[1rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(13,18,27,0.86)] px-3">
@@ -216,13 +218,14 @@ export function RoomPlaylistDock() {
             <span className="text-[12px] text-[var(--text-secondary)]">
               Sem playlist
             </span>
-            <Link
-              to="/playlists"
+            <button
+              type="button"
+              onClick={() => openFloatingPanel('playlists')}
               title="Criar playlists"
               className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] text-[var(--text-secondary)] transition-colors hover:text-white"
             >
               <PencilLine className="h-3.5 w-3.5" />
-            </Link>
+            </button>
           </div>
         )}
       </div>
@@ -269,6 +272,7 @@ export function RoomProfileDock({
   collapsed?: boolean
 }) {
   const user = useAuthStore((s) => s.user)
+  const openFloatingPanel = useUIStore((s) => s.openFloatingPanel)
 
   if (!user) return null
 
@@ -276,27 +280,44 @@ export function RoomProfileDock({
 
   if (collapsed) {
     return (
-      <Link to="/profile/$id" params={{ id: user.id }} title={user.username}>
+      <button
+        type="button"
+        onClick={() =>
+          openFloatingPanel('profile', {
+            profileId: user.id,
+          })
+        }
+        title={user.username}
+        className="block rounded-full border-0 bg-transparent p-0 cursor-pointer"
+      >
         <Avatar
           username={user.username}
           src={user.avatar}
           size="sm"
           className="h-9 w-9 text-sm"
         />
-      </Link>
+      </button>
     )
   }
 
   return (
     <div className="flex items-center gap-3 px-4 h-[78px]">
-      <Link to="/profile/$id" params={{ id: user.id }} className="shrink-0">
+      <button
+        type="button"
+        onClick={() =>
+          openFloatingPanel('profile', {
+            profileId: user.id,
+          })
+        }
+        className="shrink-0 rounded-full border-0 bg-transparent p-0 cursor-pointer"
+      >
         <Avatar
           username={user.username}
           src={user.avatar}
           size="md"
           className="h-11 w-11 text-sm"
         />
-      </Link>
+      </button>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between">
@@ -319,14 +340,18 @@ export function RoomProfileDock({
         </div>
       </div>
 
-      <Link
-        to="/profile/$id"
-        params={{ id: user.id }}
+      <button
+        type="button"
+        onClick={() =>
+          openFloatingPanel('profile', {
+            profileId: user.id,
+          })
+        }
         className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(13,18,27,0.6)] px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:text-white"
       >
         <User2 className="h-3.5 w-3.5" />
         Perfil
-      </Link>
+      </button>
     </div>
   )
 }

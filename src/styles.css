@@ -448,3 +448,18 @@ a {
   animation-name: dance-groove-kf;
   animation-duration: 1.8s;
 }
+
+.stage-scene-sprite {
+  contain: paint;
+  background-repeat: no-repeat;
+}
+
+@keyframes stage-scene-strip {
+  from {
+    background-position: var(--stage-start-offset) center;
+  }
+
+  to {
+    background-position: var(--stage-end-offset) center;
+  }
+}

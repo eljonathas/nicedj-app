@@ -74,7 +74,9 @@ export function SpriteAvatar({
           ? `-${frame * size}px center`
           : undefined,
         backgroundRepeat: 'no-repeat',
-        backgroundColor: 'rgba(255,255,255,0.04)',
+        backgroundColor: shouldRenderImage
+          ? 'transparent'
+          : 'rgba(255,255,255,0.04)',
       }}
     />
   )

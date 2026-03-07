@@ -6,7 +6,20 @@ import { useRoomStore } from "../stores/roomStore";
 import type { WsClient } from "../lib/ws";
 
 export function useWsEvents(wsClient: WsClient | null) {
-  const { addUser, removeUser, setUsers, setPlayback, setVotes, setQueue, setRoom, markWootBurst, clearWootBurst, setWootBursts, setIsInQueue, setErrorMessage } =
+  const {
+    addUser,
+    removeUser,
+    setUsers,
+    setPlayback,
+    setVotes,
+    setQueue,
+    setRoom,
+    markWootBurst,
+    clearWootBurst,
+    setWootBursts,
+    setIsInQueue,
+    setErrorMessage,
+  } =
     useRoomStore.getState();
   const { addMessage, clearMessages } = useChatStore.getState();
 
@@ -32,6 +45,7 @@ export function useWsEvents(wsClient: WsClient | null) {
           description: payload.roomDescription ?? currentRoom?.description ?? "",
           ownerId: currentRoom?.ownerId ?? "",
           ownerUsername: currentRoom?.ownerUsername ?? "host",
+          queueLocked: payload.queueLocked ?? currentRoom?.queueLocked ?? false,
         });
 
         setUsers(payload.users || []);
@@ -48,7 +62,8 @@ export function useWsEvents(wsClient: WsClient | null) {
           id: payload.userId,
           username: payload.username,
           avatar: payload.avatar ?? null,
-          role: payload.role ?? "guest",
+          role: payload.role ?? "user",
+          platformRole: payload.platformRole ?? "none",
         });
       })
     );
@@ -62,11 +77,16 @@ export function useWsEvents(wsClient: WsClient | null) {
     unsubs.push(
       wsClient.on("message_created", (payload: any) => {
         addMessage({
+          roomId: payload.roomId,
           id: payload.id,
           userId: payload.userId,
           username: payload.username,
+          avatar: payload.avatar ?? null,
+          role: payload.role ?? "user",
+          platformRole: payload.platformRole ?? "none",
           content: payload.content,
           timestamp: payload.timestamp,
+          system: Boolean(payload.system),
         });
       })
     );
@@ -137,6 +157,40 @@ export function useWsEvents(wsClient: WsClient | null) {
         if (Array.isArray(payload.queue)) {
           syncQueue(payload.queue);
         }
+      })
+    );
+
+    unsubs.push(
+      wsClient.on("user_muted", (payload: any) => {
+        if (payload?.userId !== useAuthStore.getState().user?.id) return;
+
+        setErrorMessage("Voce foi silenciado no chat desta sala.");
+      })
+    );
+
+    unsubs.push(
+      wsClient.on("user_kicked", (payload: any) => {
+        if (payload?.userId !== useAuthStore.getState().user?.id) return;
+
+        useAuthStore.getState().wsClient?.send("leave_room");
+        setIsInQueue(false);
+        setPlayback(null);
+        setQueue([]);
+        setUsers([]);
+        setErrorMessage("Voce foi expulso desta sala.");
+      })
+    );
+
+    unsubs.push(
+      wsClient.on("user_banned", (payload: any) => {
+        if (payload?.userId !== useAuthStore.getState().user?.id) return;
+
+        useAuthStore.getState().wsClient?.send("leave_room");
+        setIsInQueue(false);
+        setPlayback(null);
+        setQueue([]);
+        setUsers([]);
+        setErrorMessage("Voce foi banido desta sala.");
       })
     );
 
