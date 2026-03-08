@@ -1,14 +1,8 @@
 import { useRef } from 'react'
-import {
-  motion,
-  useScroll,
-  useSpring,
-  useTransform,
-} from 'framer-motion'
+import { motion, useScroll, useSpring, useTransform } from 'framer-motion'
 import { CheckCircle2 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { SignalConstellationSvg } from './Graphics'
-
 
 export function Hero({
   onPrimary,
@@ -145,4 +139,3 @@ function ProofChip({ text }: { text: string }) {
     </span>
   )
 }
-

@@ -29,6 +29,7 @@ type VoteAppearance = {
   surface: string
   selectedSurface: string
   glow: string
+  borderActive: string
 }
 
 const VOTE_APPEARANCE: Record<VoteType, VoteAppearance> = {
@@ -42,6 +43,7 @@ const VOTE_APPEARANCE: Record<VoteType, VoteAppearance> = {
     selectedSurface:
       'linear-gradient(135deg, rgba(55,210,124,0.22) 0%, rgba(10,18,15,0.94) 100%)',
     glow: 'rgba(55,210,124,0.22)',
+    borderActive: 'rgba(55,210,124,0.4)',
   },
   grab: {
     label: 'Grab',
@@ -53,6 +55,7 @@ const VOTE_APPEARANCE: Record<VoteType, VoteAppearance> = {
     selectedSurface:
       'linear-gradient(135deg, rgba(255,181,71,0.24) 0%, rgba(20,15,10,0.94) 100%)',
     glow: 'rgba(255,181,71,0.2)',
+    borderActive: 'rgba(255,181,71,0.4)',
   },
   meh: {
     label: 'Meh',
@@ -64,6 +67,7 @@ const VOTE_APPEARANCE: Record<VoteType, VoteAppearance> = {
     selectedSurface:
       'linear-gradient(135deg, rgba(255,97,88,0.22) 0%, rgba(20,11,12,0.94) 100%)',
     glow: 'rgba(255,97,88,0.22)',
+    borderActive: 'rgba(255,97,88,0.4)',
   },
 }
 
@@ -172,7 +176,7 @@ export function VoteBar({
             ))}
         </div>
 
-        <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-3 xl:max-w-[470px] xl:flex-none">
+        <div className="flex w-full flex-1 gap-2 sm:gap-3 xl:max-w-max xl:flex-none">
           <VoteButton
             type="woot"
             value={votes.woots}
@@ -333,12 +337,12 @@ function VoteButton({
     <motion.button
       type="button"
       onClick={onClick}
-      whileHover={reduceMotion ? undefined : { y: -3, scale: 1.012 }}
-      whileTap={reduceMotion ? undefined : { scale: 0.975 }}
-      className={`group relative isolate overflow-hidden rounded-[1.2rem] text-left transition-all duration-200 ${
+      whileHover={reduceMotion ? undefined : { y: -2, scale: 1.02 }}
+      whileTap={reduceMotion ? undefined : { scale: 0.95 }}
+      className={`group relative isolate overflow-hidden rounded-[1rem] border transition-all duration-200 ${
         compact
-          ? 'flex h-[82px] w-[76px] items-center justify-center p-2'
-          : 'flex min-h-[82px] items-center p-3'
+          ? 'flex h-10 min-w-[64px] items-center justify-center gap-1.5 px-3'
+          : 'flex h-11 flex-1 min-w-[88px] items-center justify-center gap-2 px-4'
       }`}
       style={buttonStyle}
     >
@@ -350,87 +354,44 @@ function VoteButton({
             animate={{ opacity: 0, scale: 1.22 }}
             exit={{ opacity: 0 }}
             transition={{ duration: reduceMotion ? 0.01 : 0.42 }}
-            className="pointer-events-none absolute inset-[8px] rounded-[1rem]"
+            className="pointer-events-none absolute inset-[4px] rounded-[1rem]"
             style={{ backgroundColor: appearance.accentSoft }}
           />
         ) : null}
       </AnimatePresence>
 
-      <div
-        className={`relative flex w-full ${
-          compact
-            ? 'flex-col items-center justify-center gap-1.5'
-            : 'items-center gap-3'
-        }`}
+      <motion.div
+        animate={iconAnimation}
+        transition={iconTransition}
+        className="relative flex items-center justify-center"
       >
-        <motion.div
-          animate={iconAnimation}
-          transition={iconTransition}
-          className={`relative flex shrink-0 items-center justify-center rounded-[0.95rem] ${
-            compact ? 'h-10 w-10' : 'h-12 w-12'
-          }`}
+        <Icon
+          className={compact ? 'h-[14px] w-[14px]' : 'h-[16px] w-[16px]'}
           style={{
-            backgroundColor: isSelected
-              ? appearance.accentSoft
-              : 'rgba(255,255,255,0.055)',
-            boxShadow: isSelected
-              ? `0 10px 22px ${appearance.glow}`
-              : 'inset 0 1px 0 rgba(255,255,255,0.04)',
+            color: isSelected ? appearance.text : 'rgba(255,255,255,0.6)',
+            filter: isSelected
+              ? `drop-shadow(0 2px 8px ${appearance.glow})`
+              : undefined,
           }}
-        >
-          <Icon
-            className={compact ? 'h-4 w-4' : 'h-4.5 w-4.5'}
-            style={{ color: appearance.text }}
-          />
-        </motion.div>
+        />
+      </motion.div>
 
-        <div className={`min-w-0 ${compact ? 'text-center' : 'flex-1'}`}>
-          <div className="flex items-center justify-between gap-2">
-            <span
-              className={`block font-semibold uppercase tracking-[0.12em] ${
-                compact ? 'text-[9px]' : 'text-[10px]'
-              }`}
-              style={{ color: appearance.text }}
-            >
-              {appearance.label}
-            </span>
-            {!compact ? (
-              <span className="text-[10px] uppercase tracking-[0.1em] text-[rgba(255,255,255,0.42)]">
-                {appearance.helper}
-              </span>
-            ) : null}
-          </div>
-
-          <div
-            className={`mt-0.5 flex items-end ${
-              compact ? 'justify-center gap-1' : 'justify-between gap-2'
+      <div className="relative overflow-hidden text-left">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={`${type}-${value}`}
+            initial={{ y: 8, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -8, opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0.01 : 0.22 }}
+            className={`block font-bold tabular-nums ${
+              compact ? 'text-[12px]' : 'text-[14px]'
             }`}
+            style={{ color: isSelected ? '#fff' : 'rgba(255,255,255,0.85)' }}
           >
-            <div className="relative h-7 overflow-hidden">
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={`${type}-${value}`}
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -10, opacity: 0 }}
-                  transition={{ duration: reduceMotion ? 0.01 : 0.22 }}
-                  className={`block font-bold tabular-nums ${
-                    compact ? 'text-lg' : 'text-[1.05rem]'
-                  }`}
-                  style={{ color: '#f7fbff' }}
-                >
-                  {value}
-                </motion.span>
-              </AnimatePresence>
-            </div>
-
-            {!compact ? (
-              <span className="text-[11px] font-medium text-[rgba(255,255,255,0.5)]">
-                {value === 1 ? 'voto' : 'votos'}
-              </span>
-            ) : null}
-          </div>
-        </div>
+            {value}
+          </motion.span>
+        </AnimatePresence>
       </div>
     </motion.button>
   )
@@ -442,9 +403,9 @@ function getVoteButtonStyle(
 ): CSSProperties {
   return {
     background: isSelected ? appearance.selectedSurface : appearance.surface,
-    boxShadow: isSelected
-      ? `0 16px 30px ${appearance.glow}, inset 0 1px 0 rgba(255,255,255,0.06)`
-      : 'inset 0 1px 0 rgba(255,255,255,0.04)',
+    borderColor: isSelected
+      ? appearance.borderActive
+      : 'rgba(255,255,255,0.06)',
   }
 }
 

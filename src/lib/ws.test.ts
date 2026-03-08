@@ -69,12 +69,12 @@ describe('WsClient', () => {
 
     client.connect()
 
-    const socket = MockWebSocket.instances[0]!
+    const socket = MockWebSocket.instances[0]
     expect(socket.protocols).toEqual([])
 
     socket.open()
 
-    expect(JSON.parse(socket.sent[0]!)).toMatchObject({
+    expect(JSON.parse(socket.sent[0])).toMatchObject({
       event: 'authenticate',
       payload: { token: 'token-123' },
     })
@@ -87,12 +87,12 @@ describe('WsClient', () => {
 
     client.connect()
 
-    const socket = MockWebSocket.instances[0]!
+    const socket = MockWebSocket.instances[0]
     socket.open()
     client.send('join_room', { roomId: 'room-1' })
 
     expect(socket.sent).toHaveLength(1)
-    expect(JSON.parse(socket.sent[0]!).event).toBe('authenticate')
+    expect(JSON.parse(socket.sent[0]).event).toBe('authenticate')
 
     socket.message({
       type: 'ack',
@@ -106,7 +106,7 @@ describe('WsClient', () => {
     })
 
     expect(socket.sent).toHaveLength(2)
-    expect(JSON.parse(socket.sent[1]!)).toMatchObject({
+    expect(JSON.parse(socket.sent[1])).toMatchObject({
       event: 'join_room',
       payload: { roomId: 'room-1' },
     })
