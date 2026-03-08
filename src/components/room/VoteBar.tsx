@@ -71,15 +71,8 @@ const VOTE_APPEARANCE: Record<VoteType, VoteAppearance> = {
   },
 }
 
-export function VoteBar({
-  showQueueAction = true,
-  floating = false,
-}: VoteBarProps) {
+export function VoteBar() {
   const {
-    isInQueue,
-    isCurrentDJ,
-    queueLength,
-    handleToggleQueue,
     handleVote,
     clientVote,
     votes,
@@ -107,118 +100,46 @@ export function VoteBar({
     }, 900)
   }
 
-  if (floating) {
-    return (
-      <div className="rounded-[1.45rem] bg-[rgba(8,13,19,0.78)] p-1.5 shadow-[0_18px_34px_rgba(0,0,0,0.34)] backdrop-blur-[18px]">
-        <div className="flex items-stretch gap-1.5">
-          <VoteButton
-            type="woot"
-            value={votes.woots}
-            compact
-            isSelected={clientVote === 'woot'}
-            interactionNonce={
-              recentVote?.type === 'woot' ? recentVote.nonce : null
-            }
-            onClick={() => triggerVote('woot')}
-          />
-          <VoteButton
-            type="grab"
-            value={votes.grabs}
-            compact
-            isSelected={clientVote === 'grab'}
-            interactionNonce={
-              recentVote?.type === 'grab' ? recentVote.nonce : null
-            }
-            onClick={() => triggerVote('grab')}
-          />
-          <VoteButton
-            type="meh"
-            value={votes.mehs}
-            compact
-            isSelected={clientVote === 'meh'}
-            interactionNonce={
-              recentVote?.type === 'meh' ? recentVote.nonce : null
-            }
-            onClick={() => triggerVote('meh')}
-          />
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="rounded-[1.65rem] bg-[rgba(8,13,19,0.8)] p-2.5 shadow-[0_20px_44px_rgba(0,0,0,0.34)] backdrop-blur-[20px]">
-      <div className="flex w-full flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex shrink-0 items-center gap-3">
-          {showQueueAction &&
-            (isCurrentDJ ? (
-              <Button variant="danger" onClick={handleToggleQueue}>
-                Sair do booth
-                <LogOutIcon className="h-4 w-4" />
-              </Button>
-            ) : isInQueue ? (
-              <Button variant="secondary" onClick={handleToggleQueue}>
-                Sair da fila
-                <LogOutIcon className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button onClick={handleToggleQueue}>
-                Entrar na fila
-                <LogIn className="h-4 w-4" />
-              </Button>
-            ))}
-        </div>
-
-        <div className="flex w-full flex-1 gap-2 sm:gap-3 xl:max-w-max xl:flex-none">
-          <VoteButton
-            type="woot"
-            value={votes.woots}
-            isSelected={clientVote === 'woot'}
-            interactionNonce={
-              recentVote?.type === 'woot' ? recentVote.nonce : null
-            }
-            onClick={() => triggerVote('woot')}
-          />
-          <VoteButton
-            type="grab"
-            value={votes.grabs}
-            isSelected={clientVote === 'grab'}
-            interactionNonce={
-              recentVote?.type === 'grab' ? recentVote.nonce : null
-            }
-            onClick={() => triggerVote('grab')}
-          />
-          <VoteButton
-            type="meh"
-            value={votes.mehs}
-            isSelected={clientVote === 'meh'}
-            interactionNonce={
-              recentVote?.type === 'meh' ? recentVote.nonce : null
-            }
-            onClick={() => triggerVote('meh')}
-          />
-        </div>
-
-        <div className="hidden min-w-[170px] items-center justify-end xl:flex">
-          <div className="text-right">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-              Fila
-            </span>
-            <div className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-secondary)]">
-              <span className="tabular-nums">{queueLength}</span>
-              {!isCurrentDJ && queueLength > 0 ? (
-                <ArrowRight className="h-3.5 w-3.5 text-[var(--accent-hover)]" />
-              ) : null}
-            </div>
-          </div>
-        </div>
+    <div className="rounded-[1.45rem] bg-[rgba(8,13,19,0.78)] p-1.5 shadow-[0_18px_34px_rgba(0,0,0,0.34)] backdrop-blur-[18px]">
+      <div className="flex items-stretch gap-1.5">
+        <VoteButton
+          type="woot"
+          value={votes.woots}
+          compact
+          isSelected={clientVote === 'woot'}
+          interactionNonce={
+            recentVote?.type === 'woot' ? recentVote.nonce : null
+          }
+          onClick={() => triggerVote('woot')}
+        />
+        <VoteButton
+          type="grab"
+          value={votes.grabs}
+          compact
+          isSelected={clientVote === 'grab'}
+          interactionNonce={
+            recentVote?.type === 'grab' ? recentVote.nonce : null
+          }
+          onClick={() => triggerVote('grab')}
+        />
+        <VoteButton
+          type="meh"
+          value={votes.mehs}
+          compact
+          isSelected={clientVote === 'meh'}
+          interactionNonce={
+            recentVote?.type === 'meh' ? recentVote.nonce : null
+          }
+          onClick={() => triggerVote('meh')}
+        />
       </div>
     </div>
   )
 }
 
 export function QueueActionButton() {
-  const { isInQueue, isCurrentDJ, handleToggleQueue, queueLength } =
+  const { isInQueue, isCurrentDJ, handleToggleQueue } =
     useVoteBarState()
 
   return (
@@ -226,13 +147,12 @@ export function QueueActionButton() {
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.985 }}
       onClick={handleToggleQueue}
-      className={`flex min-w-[168px] items-center justify-between gap-3 rounded-[1.35rem] border px-4 py-3 text-left shadow-[0_18px_34px_rgba(0,0,0,0.42)] backdrop-blur-[14px] transition-all ${
-        isCurrentDJ
-          ? 'border-[rgba(255,97,88,0.3)] bg-[rgba(68,17,19,0.78)] text-[rgba(255,214,211,0.94)]'
-          : isInQueue
-            ? 'border-[rgba(255,255,255,0.14)] bg-[rgba(12,17,24,0.82)] text-white'
-            : 'border-[rgba(55,210,124,0.26)] bg-[rgba(11,29,19,0.82)] text-[var(--accent-hover)]'
-      }`}
+      className={`flex min-w-[200px] items-center justify-between gap-3 rounded-[1.35rem] border px-4 py-3 text-left shadow-[0_18px_34px_rgba(0,0,0,0.42)] backdrop-blur-[14px] transition-all ${isCurrentDJ
+        ? 'border-[rgba(255,97,88,0.3)] bg-[rgba(68,17,19,0.78)] text-[rgba(255,214,211,0.94)]'
+        : isInQueue
+          ? 'border-[rgba(255,255,255,0.14)] bg-[rgba(12,17,24,0.82)] text-white'
+          : 'border-[rgba(55,210,124,0.26)] bg-[rgba(11,29,19,0.82)] text-[var(--accent-hover)]'
+        }`}
     >
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-current/15 bg-black/15">
@@ -255,9 +175,6 @@ export function QueueActionButton() {
           </span>
         </div>
       </div>
-      <span className="rounded-full border border-current/15 bg-black/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]">
-        {isCurrentDJ ? 'No ar' : `Fila ${queueLength}`}
-      </span>
     </motion.button>
   )
 }
@@ -266,14 +183,12 @@ function useVoteBarState() {
   const votes = useRoomStore((s) => s.votes)
   const queue = useRoomStore((s) => s.queue)
   const playbackDjId = useRoomStore((s) => s.playback?.djId)
-  const currentTrackId = useRoomStore((s) => s.playback?.trackId ?? null)
   const clientVote = useRoomStore((s) => s.clientVote)
   const user = useAuthStore((s) => s.user)
   const wsClient = useAuthStore((s) => s.wsClient)
 
   const isInQueue = Boolean(user?.id && queue.includes(user.id))
   const isCurrentDJ = playbackDjId === user?.id
-  const hasWooted = Boolean(user?.id && votes.wootUserIds.includes(user.id))
 
   const handleVote = (type: VoteType) => {
     wsClient?.send('vote', { type })
@@ -324,9 +239,9 @@ function VoteButton({
   const iconTransition = reduceMotion
     ? undefined
     : {
-        duration: 0.48,
-        ease: [0.22, 1, 0.36, 1] as const,
-      }
+      duration: 0.48,
+      ease: [0.22, 1, 0.36, 1] as const,
+    }
 
   return (
     <motion.button
@@ -334,11 +249,10 @@ function VoteButton({
       onClick={onClick}
       whileHover={reduceMotion ? undefined : { y: -2, scale: 1.02 }}
       whileTap={reduceMotion ? undefined : { scale: 0.95 }}
-      className={`group relative isolate overflow-hidden rounded-[1rem] border transition-all duration-200 ${
-        compact
-          ? 'flex h-10 min-w-[64px] items-center justify-center gap-1.5 px-3'
-          : 'flex h-11 flex-1 min-w-[88px] items-center justify-center gap-2 px-4'
-      }`}
+      className={`group relative isolate overflow-hidden rounded-[1rem] border transition-all duration-200 ${compact
+        ? 'flex h-10 min-w-[64px] items-center justify-center gap-1.5 px-3'
+        : 'flex h-11 flex-1 min-w-[88px] items-center justify-center gap-2 px-4'
+        }`}
       style={buttonStyle}
     >
       <AnimatePresence>
@@ -379,9 +293,8 @@ function VoteButton({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -8, opacity: 0 }}
             transition={{ duration: reduceMotion ? 0.01 : 0.22 }}
-            className={`block font-bold tabular-nums ${
-              compact ? 'text-[12px]' : 'text-[14px]'
-            }`}
+            className={`block font-bold tabular-nums ${compact ? 'text-[12px]' : 'text-[14px]'
+              }`}
             style={{ color: isSelected ? '#fff' : 'rgba(255,255,255,0.85)' }}
           >
             {value}

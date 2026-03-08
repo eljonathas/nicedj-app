@@ -54,6 +54,7 @@ function RoomPage() {
   const room = useRoomStore((s) => s.room)
   const users = useRoomStore((s) => s.users)
   const playback = useRoomStore((s) => s.playback)
+  const queue = useRoomStore((s) => s.queue)
   const currentDjId = playback?.djId
   const roomEventError = useRoomStore((s) => s.errorMessage)
   const reset = useRoomStore((s) => s.reset)
@@ -136,7 +137,7 @@ function RoomPage() {
   const panelTabs = [
     { id: 'chat' as const, label: 'Chat', icon: MessageSquare },
     { id: 'users' as const, label: 'Pessoas', icon: Users },
-    { id: 'queue' as const, label: 'Fila', icon: ListMusic },
+    { id: 'queue' as const, label: `Fila (${queue.length})`, icon: ListMusic },
   ]
 
   const hostName = useMemo(() => {
@@ -222,11 +223,10 @@ function RoomPage() {
               <button
                 key={tab.id}
                 onClick={() => setActivePanel(tab.id)}
-                className={`flex h-8 items-center justify-center gap-1 rounded-md text-[11px] font-semibold transition-all ${
-                  activePanel === tab.id
-                    ? 'bg-[rgba(255,255,255,0.1)] text-white'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                }`}
+                className={`flex h-8 items-center justify-center gap-1 rounded-md text-[11px] font-semibold transition-all ${activePanel === tab.id
+                  ? 'bg-[rgba(255,255,255,0.1)] text-white'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                  }`}
               >
                 <tab.icon className="h-3.5 w-3.5" />
                 {tab.label}
@@ -270,7 +270,7 @@ function RoomPage() {
 
       <div className="pointer-events-none absolute bottom-4 right-4 z-40">
         <div className="pointer-events-auto">
-          <VoteBar floating showQueueAction={false} />
+          <VoteBar />
         </div>
       </div>
     </div>
@@ -305,11 +305,10 @@ function RoomPage() {
                     <button
                       key={tab.id}
                       onClick={() => setActivePanel(tab.id)}
-                      className={`flex h-8 items-center justify-center gap-1 rounded-md text-[11px] font-semibold transition-all ${
-                        activePanel === tab.id
-                          ? 'bg-[rgba(255,255,255,0.1)] text-white'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                      }`}
+                      className={`flex h-8 items-center justify-center gap-1 rounded-md text-[11px] font-semibold transition-all ${activePanel === tab.id
+                        ? 'bg-[rgba(255,255,255,0.1)] text-white'
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                        }`}
                     >
                       <tab.icon className="h-3.5 w-3.5" />
                       {tab.label}
@@ -374,9 +373,8 @@ function RoomPage() {
         </section>
 
         <aside
-          className={`shrink-0 border-l border-[rgba(255,255,255,0.08)] bg-[#0a0f17] transition-all duration-300 ${
-            isPanelCollapsed ? 'w-[58px]' : 'w-[336px]'
-          }`}
+          className={`shrink-0 border-l border-[rgba(255,255,255,0.08)] bg-[#0a0f17] transition-all duration-300 ${isPanelCollapsed ? 'w-[58px]' : 'w-[336px]'
+            }`}
         >
           <div className="flex h-full min-h-0 flex-col">
             {panelHeader}
@@ -390,11 +388,10 @@ function RoomPage() {
                       setActivePanel(tab.id)
                       setIsPanelCollapsed(false)
                     }}
-                    className={`h-9 w-9 rounded-md border transition-colors ${
-                      activePanel === tab.id
-                        ? 'border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.1)] text-white'
-                        : 'border-[rgba(255,255,255,0.1)] bg-[rgba(13,18,27,0.92)] text-[var(--text-muted)]'
-                    }`}
+                    className={`h-9 w-9 rounded-md border transition-colors ${activePanel === tab.id
+                      ? 'border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.1)] text-white'
+                      : 'border-[rgba(255,255,255,0.1)] bg-[rgba(13,18,27,0.92)] text-[var(--text-muted)]'
+                      }`}
                     aria-label={tab.label}
                   >
                     <tab.icon className="mx-auto h-4 w-4" />
