@@ -160,10 +160,10 @@ export function RoomsPage() {
               <Link
                 to="/room/$slug"
                 params={{ slug: room.slug }}
-                className="group block overflow-hidden rounded-3xl border border-[var(--border-light)] bg-[linear-gradient(165deg,rgba(20,27,38,0.93),rgba(11,16,24,0.95))] p-5 transition-all hover:-translate-y-0.5 hover:border-[rgba(30,215,96,0.45)] hover:shadow-[0_20px_44px_rgba(2,7,16,0.55)]"
+                className="group flex h-full flex-col overflow-hidden rounded-3xl border border-[var(--border-light)] bg-[linear-gradient(165deg,rgba(20,27,38,0.93),rgba(11,16,24,0.95))] p-5 transition-all hover:-translate-y-0.5 hover:border-[rgba(30,215,96,0.45)] hover:shadow-[0_20px_44px_rgba(2,7,16,0.55)]"
               >
-                <div className="flex items-start gap-4">
-                  <div className="relative h-18 w-18 shrink-0 overflow-hidden rounded-2xl border border-[var(--border-light)] bg-[rgba(16,24,34,0.95)]">
+                <div className="flex flex-col flex-1 gap-3">
+                  <div className="relative h-32 w-full shrink-0 overflow-hidden rounded-2xl border border-[var(--border-light)] bg-[rgba(16,24,34,0.95)]">
                     {room.currentPlayback?.thumbnailUrl ? (
                       <img
                         src={room.currentPlayback.thumbnailUrl}
@@ -173,83 +173,56 @@ export function RoomsPage() {
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
                         <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_30%_20%,rgba(30,215,96,0.2),transparent_65%)] opacity-0 transition-opacity group-hover:opacity-100" />
-                        <Play className="relative h-6 w-6 text-[var(--accent-hover)]" />
+                        <Play className="relative h-8 w-8 text-[var(--accent-hover)]" />
                       </div>
                     )}
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,transparent,rgba(4,6,10,0.88))] px-2 py-1">
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,transparent,rgba(4,6,10,0.88))] px-3 py-2">
                       <p className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--text-primary)]">
                         {room.currentPlayback ? 'Ao vivo' : 'Sem set'}
                       </p>
                     </div>
+                    {/* Floating Users Counter */}
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full border border-[var(--border-light)] bg-[rgba(8,12,18,0.78)] px-2 py-1 backdrop-blur-md">
+                      <div className="flex items-center gap-1 pr-1 text-[10px] font-semibold text-white">
+                        <Users2 className="h-3 w-3 text-[var(--accent-alt)]" />
+                        <span>{room.activeUsersCount}</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="truncate text-lg font-bold text-[var(--text-primary)]">
-                        {room.name}
-                      </h3>
-                      {room.isPrivate && (
-                        <Lock className="h-3.5 w-3.5 text-[var(--warning)]" />
-                      )}
-                    </div>
-
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--text-muted)]">
-                      <span className="truncate">
-                        Host {room.ownerUsername}
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <h3 className="truncate text-base font-bold text-[var(--text-primary)]">
+                          {room.name}
+                        </h3>
+                        {room.isPrivate && (
+                          <Lock className="h-3.5 w-3.5 text-[var(--warning)] shrink-0" />
+                        )}
+                      </div>
+                      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--accent-hover)]">
+                        Entrar
                       </span>
-                      <span className="text-[rgba(255,255,255,0.22)]">•</span>
-                      <span>{room.activeUsersCount} ativos</span>
                     </div>
 
-                    <p className="mt-2 line-clamp-2 text-sm text-[var(--text-secondary)]">
-                      {room.description ||
-                        'Sala sem descrição. Entre para descobrir o som da comunidade.'}
-                    </p>
-                  </div>
-                </div>
+                    <div className="text-[11px] text-[var(--text-muted)] truncate">
+                      by {room.ownerUsername}
+                    </div>
 
-                <div className="mt-4 flex items-end justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                      Tocando agora
-                    </p>
-                    <p className="truncate text-[13px] font-semibold text-white">
-                      {room.currentPlayback?.title ?? 'Sem set no ar'}
-                    </p>
-                    <p className="truncate text-[11px] text-[var(--text-secondary)]">
-                      {room.currentPlayback?.artist ??
-                        'Aguardando o próximo DJ'}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center">
-                      {room.activeUsers
-                        .slice(0, 4)
-                        .map((activeUser, avatarIndex) => (
-                          <div
-                            key={activeUser.id}
-                            className={avatarIndex === 0 ? '' : '-ml-2'}
-                          >
-                            <Avatar
-                              username={activeUser.username}
-                              src={activeUser.avatar}
-                              size="sm"
-                              className="h-7 w-7 border border-[rgba(8,12,18,0.9)] ring-0"
-                            />
-                          </div>
-                        ))}
-                      {room.activeUsersCount === 0 && (
-                        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border-light)] bg-[rgba(14,20,30,0.82)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)]">
-                          <Users2 className="h-3.5 w-3.5 text-[var(--accent-alt)]" />
-                          Vazia
+                    <div className="mt-auto pt-3 min-w-0">
+                      <div className="flex items-center gap-2 text-[var(--text-muted)]">
+                        <AudioLines className="h-4 w-4 shrink-0 text-[var(--accent-hover)] mt-0.5" />
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-medium text-white leading-tight">
+                            {room.currentPlayback?.title ?? 'Nenhum DJ tocando'}
+                          </p>
+                          <p className="truncate text-[11px] leading-tight mt-0.5">
+                            {room.currentPlayback?.artist ??
+                              'Sala livre para tocar'}
+                          </p>
                         </div>
-                      )}
+                      </div>
                     </div>
-
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-hover)]">
-                      Entrar
-                    </span>
                   </div>
                 </div>
               </Link>

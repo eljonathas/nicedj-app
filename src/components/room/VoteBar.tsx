@@ -7,7 +7,7 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useAuthStore } from '../../stores/authStore'
 import { useRoomStore } from '../../stores/roomStore'
@@ -81,7 +81,7 @@ export function VoteBar({
     queueLength,
     handleToggleQueue,
     handleVote,
-    hasWooted,
+    clientVote,
     votes,
   } = useVoteBarState()
   const [recentVote, setRecentVote] = useState<{
@@ -90,16 +90,9 @@ export function VoteBar({
   } | null>(null)
   const resetRecentVoteTimerRef = useRef<number | null>(null)
 
-  useEffect(() => {
-    return () => {
-      if (resetRecentVoteTimerRef.current !== null) {
-        window.clearTimeout(resetRecentVoteTimerRef.current)
-      }
-    }
-  }, [])
-
   const triggerVote = (type: VoteType) => {
     handleVote(type)
+
     setRecentVote({
       type,
       nonce: Date.now(),
@@ -122,7 +115,7 @@ export function VoteBar({
             type="woot"
             value={votes.woots}
             compact
-            isSelected={hasWooted || recentVote?.type === 'woot'}
+            isSelected={clientVote === 'woot'}
             interactionNonce={
               recentVote?.type === 'woot' ? recentVote.nonce : null
             }
@@ -132,7 +125,7 @@ export function VoteBar({
             type="grab"
             value={votes.grabs}
             compact
-            isSelected={recentVote?.type === 'grab'}
+            isSelected={clientVote === 'grab'}
             interactionNonce={
               recentVote?.type === 'grab' ? recentVote.nonce : null
             }
@@ -142,7 +135,7 @@ export function VoteBar({
             type="meh"
             value={votes.mehs}
             compact
-            isSelected={recentVote?.type === 'meh'}
+            isSelected={clientVote === 'meh'}
             interactionNonce={
               recentVote?.type === 'meh' ? recentVote.nonce : null
             }
@@ -180,7 +173,7 @@ export function VoteBar({
           <VoteButton
             type="woot"
             value={votes.woots}
-            isSelected={hasWooted || recentVote?.type === 'woot'}
+            isSelected={clientVote === 'woot'}
             interactionNonce={
               recentVote?.type === 'woot' ? recentVote.nonce : null
             }
@@ -189,7 +182,7 @@ export function VoteBar({
           <VoteButton
             type="grab"
             value={votes.grabs}
-            isSelected={recentVote?.type === 'grab'}
+            isSelected={clientVote === 'grab'}
             interactionNonce={
               recentVote?.type === 'grab' ? recentVote.nonce : null
             }
@@ -198,7 +191,7 @@ export function VoteBar({
           <VoteButton
             type="meh"
             value={votes.mehs}
-            isSelected={recentVote?.type === 'meh'}
+            isSelected={clientVote === 'meh'}
             interactionNonce={
               recentVote?.type === 'meh' ? recentVote.nonce : null
             }
@@ -273,6 +266,8 @@ function useVoteBarState() {
   const votes = useRoomStore((s) => s.votes)
   const queue = useRoomStore((s) => s.queue)
   const playbackDjId = useRoomStore((s) => s.playback?.djId)
+  const currentTrackId = useRoomStore((s) => s.playback?.trackId ?? null)
+  const clientVote = useRoomStore((s) => s.clientVote)
   const user = useAuthStore((s) => s.user)
   const wsClient = useAuthStore((s) => s.wsClient)
 
@@ -298,7 +293,7 @@ function useVoteBarState() {
     isInQueue,
     isCurrentDJ,
     queueLength: queue.length,
-    hasWooted,
+    clientVote,
     handleToggleQueue,
     handleVote,
   }

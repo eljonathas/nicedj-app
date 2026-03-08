@@ -19,6 +19,7 @@ export function useWsEvents(wsClient: WsClient | null) {
     setWootBursts,
     setIsInQueue,
     setErrorMessage,
+    setClientVote,
   } = useRoomStore.getState()
   const { addMessage, clearMessages } = useChatStore.getState()
 
@@ -52,8 +53,16 @@ export function useWsEvents(wsClient: WsClient | null) {
         syncQueue(payload.queue || [])
         setPlayback(payload.playback ?? null)
         setVotes(
-          payload.votes ?? { woots: 0, mehs: 0, grabs: 0, wootUserIds: [] },
+          payload.votes ?? {
+            woots: 0,
+            mehs: 0,
+            grabs: 0,
+            wootUserIds: [],
+            grabUserIds: [],
+            mehUserIds: [],
+          },
         )
+        setClientVote(payload.clientVote ?? null)
         setWootBursts(payload.votes?.wootUserIds ?? [])
       }),
     )
@@ -129,6 +138,10 @@ export function useWsEvents(wsClient: WsClient | null) {
 
     unsubs.push(
       wsClient.on('vote_updated', (payload: any) => {
+        if (payload.userId === useAuthStore.getState().user?.id) {
+          setClientVote(payload.type)
+        }
+
         if (payload.type === 'woot' && typeof payload.userId === 'string') {
           markWootBurst(payload.userId)
           return
@@ -198,6 +211,7 @@ export function useWsEvents(wsClient: WsClient | null) {
 
     unsubs.push(
       wsClient.on('dj_changed', (payload: any) => {
+        setClientVote(null)
         if (payload.queue) syncQueue(payload.queue)
       }),
     )

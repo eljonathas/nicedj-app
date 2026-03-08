@@ -314,7 +314,7 @@ export function PlaylistsPage() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && void handleCreate()}
-              className="flex-1 py-2 text-[13px]"
+              className="w-full text-[13px]"
             />
             <Button
               size="sm"
@@ -364,7 +364,7 @@ export function PlaylistsPage() {
       <div className="flex flex-1 flex-col overflow-y-auto">
         {selected ? (
           <>
-            <div className="sticky top-0 z-10 border-b border-[var(--border-light)] bg-[var(--bg-primary)]/92 px-6 py-4 backdrop-blur-xl">
+            <div className="sticky top-0 z-10 border-b border-[var(--border-light)] bg-[var(--bg-primary)]/92 p-4 backdrop-blur-xl">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <h1 className="text-xl font-bold text-white">
@@ -441,7 +441,7 @@ export function PlaylistsPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              <div className="space-y-4 px-6 py-4">
+              <div className="space-y-4 p-4">
                 {searchLoading && (
                   <div className="flex items-center gap-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.7)] px-4 py-3 text-[13px] text-[var(--text-secondary)]">
                     <Loader2 className="h-4 w-4 animate-spin" />

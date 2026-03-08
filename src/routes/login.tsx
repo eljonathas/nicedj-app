@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Disc3, Music2, Radio, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Disc3 } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -25,205 +25,95 @@ function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      <div className="landing-grid" />
-      <div className="landing-aurora" />
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[var(--bg-primary)] px-4 py-8 sm:px-6">
+      <div
+        className="pointer-events-none absolute inset-0 z-0 opacity-40"
+        style={{
+          background:
+            'radial-gradient(circle at 50% 0%, rgba(24,226,153,0.06), transparent 50%)',
+        }}
+      />
 
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-8 md:px-8">
-        <div className="grid w-full gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <motion.section
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45 }}
-            className="hidden lg:block"
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        className="relative z-10 w-full max-w-[420px]"
+      >
+        <div className="mb-8 flex flex-col items-center text-center">
+          <Link
+            to="/"
+            className="group mb-8 flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(230,255,239,0.82)] bg-[#f1fff5] text-[#082014] shadow-[0_12px_28px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.92)] transition-transform hover:scale-105"
           >
-            <Link to="/" className="inline-flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(230,255,239,0.82)] bg-[#f1fff5] text-[#082014] shadow-[0_12px_28px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.92)]">
-                <Disc3 className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="font-display text-lg font-bold tracking-tight">
-                  NiceDJ
-                </p>
-                <p className="text-sm text-[var(--text-secondary)]">
-                  Produto social para musica ao vivo
-                </p>
-              </div>
-            </Link>
+            <Disc3 className="h-6 w-6 transition-transform group-hover:rotate-12" />
+          </Link>
 
-            <div className="surface-card mt-6 rounded-[2rem] p-8">
-              <span className="pill inline-flex items-center gap-2 border-[rgba(24,226,153,0.22)] bg-[rgba(24,226,153,0.08)] text-[var(--text-primary)]">
-                <Radio className="h-3.5 w-3.5 text-[var(--accent-hover)]" />
-                Login com linguagem mais clara
-              </span>
+          <h1 className="font-display text-[26px] font-bold tracking-tight text-white">
+            Welcome back
+          </h1>
+          <p className="mt-2 text-[15px] text-[var(--text-secondary)]">
+            Log in to continue to NiceDJ
+          </p>
+        </div>
 
-              <h1 className="section-title mt-6 text-4xl font-extrabold leading-tight">
-                Volte para a cabine com a mesma
-                <span className="text-gradient">
-                  {' '}
-                  clareza de uma ferramenta de produto
-                </span>
-              </h1>
+        <div className="rounded-[1.4rem] border border-[var(--border-light)] bg-[rgba(16,21,29,0.5)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-8 backdrop-blur-xl">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="Email address"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
 
-              <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-[var(--text-secondary)]">
-                NiceDJ reune salas, fila de DJs, chat e governanca em uma
-                interface mais limpa, com contraste alto, superficies suaves e
-                fluxos diretos para entrar e continuar a sessao.
-              </p>
+            <Input
+              label="Password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                <FeatureCard
-                  icon={Music2}
-                  title="Playback sem drift"
-                  text="Estado autoritativo e feedback realtime para cada sala."
-                />
-                <FeatureCard
-                  icon={ShieldCheck}
-                  title="Moderacao nativa"
-                  text="Cargos, permissoes e sinais operacionais em um unico lugar."
-                />
-              </div>
-
-              <div className="mt-8 rounded-[1.6rem] border border-[var(--border-light)] bg-[rgba(255,255,255,0.04)] p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-medium tracking-[0.04em] text-[var(--text-muted)]">
-                      Sessao ativa
-                    </p>
-                    <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">
-                      House Nation / Peak Session
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-[rgba(24,226,153,0.2)] bg-[rgba(24,226,153,0.1)] px-3 py-1 text-xs font-medium text-[var(--text-primary)]">
-                    32 ms
-                  </span>
-                </div>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <MetricCard label="Fila" value="16 DJs" />
-                  <MetricCard label="Mensagens" value="+128" />
-                  <MetricCard label="Votos" value="428" />
-                </div>
-              </div>
-            </div>
-          </motion.section>
-
-          <motion.section
-            initial={{ opacity: 0, scale: 0.97, y: 18 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="auth-panel rounded-[2rem] p-6 md:p-8"
-          >
-            <div className="flex items-center justify-between gap-4">
-              <Link
-                to="/"
-                className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+            {error && (
+              <motion.p
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="rounded-[0.8rem] border border-[rgba(255,107,99,0.26)] bg-[rgba(79,23,26,0.3)] px-3.5 py-2.5 text-[13px] font-medium text-[var(--danger)]"
               >
-                <ArrowLeft className="h-4 w-4" />
-                Inicio
-              </Link>
-              <span className="pill border-[rgba(24,226,153,0.22)] bg-[rgba(24,226,153,0.08)] text-[var(--text-primary)]">
-                Acesso
-              </span>
-            </div>
+                {error}
+              </motion.p>
+            )}
 
-            <div className="mb-8 mt-8 text-center lg:text-left">
-              <p className="text-xs font-medium tracking-[0.04em] text-[var(--text-muted)]">
-                Entrar
-              </p>
-              <h2 className="section-title mt-2 text-3xl font-extrabold tracking-tight">
-                Entrar no NiceDJ
-              </h2>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-                Use sua conta para participar das salas, retomar playlists e
-                continuar votando nas tracks.
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <Input
-                label="E-mail"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-              />
-
-              <Input
-                label="Senha"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-
-              {error && (
-                <p className="rounded-[1rem] border border-[rgba(255,107,99,0.26)] bg-[rgba(79,23,26,0.48)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
-                  {error}
-                </p>
-              )}
-
+            <div className="pt-2">
               <Button type="submit" fullWidth size="lg" isLoading={isLoading}>
-                Fazer login
+                Log in
               </Button>
-            </form>
-
-            <div className="mt-6 rounded-[1.25rem] border border-[var(--border-light)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-              Autenticacao desenhada para reduzir atrito sem perder clareza
-              visual entre estado, foco e erro.
             </div>
+          </form>
 
-            <p className="mt-7 text-center text-sm text-[var(--text-secondary)]">
-              Não tem conta?{' '}
+          <div className="mt-6 flex flex-col items-center gap-4 border-t border-[var(--border-light)] pt-6">
+            <p className="text-[14px] text-[var(--text-secondary)]">
+              Don't have an account?{' '}
               <Link
                 to="/register"
-                className="font-semibold text-[var(--accent-hover)] hover:text-white transition-colors"
+                className="font-semibold text-white transition-colors hover:text-[var(--accent-hover)]"
               >
-                Criar agora
+                Sign up
               </Link>
             </p>
-          </motion.section>
+
+            <Link
+              to="/"
+              className="group inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:text-white"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" />
+              Back to home
+            </Link>
+          </div>
         </div>
-      </div>
-    </div>
-  )
-}
-
-function FeatureCard({
-  icon: Icon,
-  title,
-  text,
-}: {
-  icon: typeof Music2
-  title: string
-  text: string
-}) {
-  return (
-    <div className="rounded-[1.3rem] border border-[var(--border-light)] bg-[rgba(255,255,255,0.04)] p-4">
-      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(24,226,153,0.12)] text-[var(--accent-hover)]">
-        <Icon className="h-4 w-4" />
-      </div>
-      <p className="mt-4 text-sm font-semibold text-[var(--text-primary)]">
-        {title}
-      </p>
-      <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">
-        {text}
-      </p>
-    </div>
-  )
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[1rem] border border-[var(--border-light)] bg-[rgba(255,255,255,0.04)] px-3 py-3">
-      <p className="text-[11px] font-medium tracking-[0.04em] text-[var(--text-muted)]">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-        {value}
-      </p>
+      </motion.div>
     </div>
   )
 }

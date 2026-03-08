@@ -30,6 +30,8 @@ interface Votes {
   mehs: number
   grabs: number
   wootUserIds: string[]
+  grabUserIds: string[]
+  mehUserIds: string[]
 }
 
 interface RoomInfo {
@@ -55,6 +57,7 @@ interface RoomState {
   queue: string[]
   playback: Playback | null
   votes: Votes
+  clientVote: 'woot' | 'grab' | 'meh' | null
   isInQueue: boolean
   wootBursts: Record<string, number>
   errorMessage: string | null
@@ -68,6 +71,7 @@ interface RoomState {
   setQueue: (queue: string[]) => void
   setPlayback: (playback: Playback | null) => void
   setVotes: (votes: Votes) => void
+  setClientVote: (vote: 'woot' | 'grab' | 'meh' | null) => void
   updateVote: (type: 'woot' | 'meh' | 'grab', delta: number) => void
   setIsInQueue: (value: boolean) => void
   setErrorMessage: (message: string | null) => void
@@ -94,7 +98,15 @@ const initialState = {
   users: [],
   queue: [],
   playback: null,
-  votes: { woots: 0, mehs: 0, grabs: 0, wootUserIds: [] },
+  votes: {
+    woots: 0,
+    mehs: 0,
+    grabs: 0,
+    wootUserIds: [],
+    grabUserIds: [],
+    mehUserIds: [],
+  },
+  clientVote: null as 'woot' | 'grab' | 'meh' | null,
   isInQueue: false,
   wootBursts: {},
   errorMessage: null,
@@ -154,7 +166,9 @@ export const useRoomStore = create<RoomState>((set) => ({
             type === 'woot' ? 'woots' : type === 'meh' ? 'mehs' : 'grabs'
           ] + delta,
       },
+      clientVote: delta > 0 ? type : s.clientVote, // fallback logic in case it updates locally
     })),
+  setClientVote: (vote) => set({ clientVote: vote }),
   setIsInQueue: (value) => set({ isInQueue: value }),
   setErrorMessage: (message) => set({ errorMessage: message }),
   setPlayerVolume: (value) => {
