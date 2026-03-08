@@ -1,9 +1,16 @@
-import { motion } from "framer-motion";
-import { Ban, GripVertical, LogOut, Mic2, UserRound, VolumeX } from "lucide-react";
-import { useMemo, useState } from "react";
-import type { UserPresenceGroupName } from "../../lib/roles";
-import { useAuthStore } from "../../stores/authStore";
-import { useRoomStore } from "../../stores/roomStore";
+import { motion } from 'framer-motion'
+import {
+  Ban,
+  GripVertical,
+  LogOut,
+  Mic2,
+  UserRound,
+  VolumeX,
+} from 'lucide-react'
+import { useMemo, useState } from 'react'
+import type { UserPresenceGroupName } from '../../lib/roles'
+import { useAuthStore } from '../../stores/authStore'
+import { useRoomStore } from '../../stores/roomStore'
 import {
   canManageRoomRole,
   compareUserPresencePriority,
@@ -14,33 +21,33 @@ import {
   normalizePlatformRole,
   roomRoleHasPermission,
   USER_PRESENCE_GROUP_ORDER,
-} from "../../lib/roles";
-import { Avatar } from "../ui/Avatar";
+} from '../../lib/roles'
+import { Avatar } from '../ui/Avatar'
 
 export function UserList() {
-  const users = useRoomStore((s) => s.users);
-  const currentUserId = useAuthStore((s) => s.user?.id);
-  const wsClient = useAuthStore((s) => s.wsClient);
+  const users = useRoomStore((s) => s.users)
+  const currentUserId = useAuthStore((s) => s.user?.id)
+  const wsClient = useAuthStore((s) => s.wsClient)
 
-  const currentUser = users.find((candidate) => candidate.id === currentUserId);
+  const currentUser = users.find((candidate) => candidate.id === currentUserId)
   const groupedUsers = useMemo(() => {
-    const groups = new Map<UserPresenceGroupName, typeof users>();
+    const groups = new Map<UserPresenceGroupName, typeof users>()
 
     for (const user of [...users].sort(compareUserPresencePriority)) {
-      const group = getUserPresenceGroup(user.platformRole, user.role);
-      const currentGroup = groups.get(group);
+      const group = getUserPresenceGroup(user.platformRole, user.role)
+      const currentGroup = groups.get(group)
       if (currentGroup) {
-        currentGroup.push(user);
-        continue;
+        currentGroup.push(user)
+        continue
       }
 
-      groups.set(group, [user]);
+      groups.set(group, [user])
     }
 
     return USER_PRESENCE_GROUP_ORDER.flatMap((group) => {
-      const sectionUsers = groups.get(group);
+      const sectionUsers = groups.get(group)
       if (!sectionUsers?.length) {
-        return [];
+        return []
       }
 
       return [
@@ -48,42 +55,40 @@ export function UserList() {
           group,
           users: sectionUsers,
         },
-      ];
-    });
-  }, [users]);
+      ]
+    })
+  }, [users])
 
   const handleModeration = (
-    action: "mute_user" | "kick_user" | "ban_user",
+    action: 'mute_user' | 'kick_user' | 'ban_user',
     targetUserId: string,
     username: string,
   ) => {
-    if (!wsClient) return;
+    if (!wsClient) return
 
-    if (action === "mute_user") {
-      wsClient.send("mute_user", {
+    if (action === 'mute_user') {
+      wsClient.send('mute_user', {
         targetUserId,
         reason: `Muted by room staff`,
         durationMs: 15 * 60 * 1000,
-      });
-      return;
+      })
+      return
     }
 
     const confirmed = window.confirm(
-      action === "ban_user"
+      action === 'ban_user'
         ? `Banir ${username} da sala?`
         : `Expulsar ${username} da sala?`,
-    );
+    )
 
-    if (!confirmed) return;
+    if (!confirmed) return
 
     wsClient.send(action, {
       targetUserId,
       reason:
-        action === "ban_user"
-          ? "Banned by room staff"
-          : "Kicked by room staff",
-    });
-  };
+        action === 'ban_user' ? 'Banned by room staff' : 'Kicked by room staff',
+    })
+  }
 
   if (users.length === 0) {
     return (
@@ -91,9 +96,11 @@ export function UserList() {
         <div className="h-10 w-10 rounded-xl border border-[rgba(255,255,255,0.1)] bg-[rgba(16,21,30,0.95)] text-[var(--text-muted)] flex items-center justify-center mb-2.5">
           <UserRound className="h-4.5 w-4.5" />
         </div>
-        <p className="text-xs font-semibold text-[var(--text-secondary)]">Sem usuários conectados</p>
+        <p className="text-xs font-semibold text-[var(--text-secondary)]">
+          Sem usuários conectados
+        </p>
       </div>
-    );
+    )
   }
 
   return (
@@ -109,7 +116,9 @@ export function UserList() {
                 <span
                   className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border ${sectionMeta.pillClassName}`}
                 >
-                  <SectionIcon className={`h-3.5 w-3.5 ${sectionMeta.iconClassName}`} />
+                  <SectionIcon
+                    className={`h-3.5 w-3.5 ${sectionMeta.iconClassName}`}
+                  />
                 </span>
                 <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                   {sectionMeta.title}
@@ -129,21 +138,21 @@ export function UserList() {
                 const RoleIcon = roomRole.icon
                 const canMute = Boolean(
                   currentUserId &&
-                    currentUserId !== user.id &&
-                    roomRoleHasPermission(currentUser?.role, "mute_user") &&
-                    canManageRoomRole(currentUser?.role, user.role)
+                  currentUserId !== user.id &&
+                  roomRoleHasPermission(currentUser?.role, 'mute_user') &&
+                  canManageRoomRole(currentUser?.role, user.role),
                 )
                 const canKick = Boolean(
                   currentUserId &&
-                    currentUserId !== user.id &&
-                    roomRoleHasPermission(currentUser?.role, "kick_user") &&
-                    canManageRoomRole(currentUser?.role, user.role)
+                  currentUserId !== user.id &&
+                  roomRoleHasPermission(currentUser?.role, 'kick_user') &&
+                  canManageRoomRole(currentUser?.role, user.role),
                 )
                 const canBan = Boolean(
                   currentUserId &&
-                    currentUserId !== user.id &&
-                    roomRoleHasPermission(currentUser?.role, "ban_user") &&
-                    canManageRoomRole(currentUser?.role, user.role)
+                  currentUserId !== user.id &&
+                  roomRoleHasPermission(currentUser?.role, 'ban_user') &&
+                  canManageRoomRole(currentUser?.role, user.role),
                 )
 
                 return (
@@ -157,22 +166,32 @@ export function UserList() {
                     }}
                     className={`group flex items-center gap-2 rounded-lg border px-2.5 py-2 shadow-[0_8px_18px_rgba(0,0,0,0.24)] ${
                       roomRole.rowClassName ||
-                      "border-[rgba(255,255,255,0.08)] bg-[rgba(15,20,29,0.95)]"
+                      'border-[rgba(255,255,255,0.08)] bg-[rgba(15,20,29,0.95)]'
                     }`}
                   >
-                    <Avatar username={user.username} src={user.avatar} size="sm" className="h-7 w-7" />
+                    <Avatar
+                      username={user.username}
+                      src={user.avatar}
+                      size="sm"
+                      className="h-7 w-7"
+                    />
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <p className={`truncate text-[12px] font-semibold ${roomRole.nameClassName}`}>
+                        <p
+                          className={`truncate text-[12px] font-semibold ${roomRole.nameClassName}`}
+                        >
                           {user.username}
                         </p>
-                        {normalizePlatformRole(user.platformRole) !== "none" && (
+                        {normalizePlatformRole(user.platformRole) !==
+                          'none' && (
                           <span
                             className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${platformRole.pillClassName}`}
                             title={platformRole.label}
                           >
-                            <PlatformIcon className={`h-2.5 w-2.5 ${platformRole.iconClassName}`} />
+                            <PlatformIcon
+                              className={`h-2.5 w-2.5 ${platformRole.iconClassName}`}
+                            />
                           </span>
                         )}
                       </div>
@@ -181,15 +200,20 @@ export function UserList() {
                         <span
                           className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] ${roomRole.pillClassName}`}
                         >
-                          <RoleIcon className={`h-2.5 w-2.5 ${roomRole.iconClassName}`} />
+                          <RoleIcon
+                            className={`h-2.5 w-2.5 ${roomRole.iconClassName}`}
+                          />
                           {roomRole.shortLabel}
                         </span>
 
-                        {normalizePlatformRole(user.platformRole) !== "none" && (
+                        {normalizePlatformRole(user.platformRole) !==
+                          'none' && (
                           <span
                             className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] ${platformRole.pillClassName}`}
                           >
-                            <PlatformIcon className={`h-2.5 w-2.5 ${platformRole.iconClassName}`} />
+                            <PlatformIcon
+                              className={`h-2.5 w-2.5 ${platformRole.iconClassName}`}
+                            />
                             {platformRole.shortLabel}
                           </span>
                         )}
@@ -201,7 +225,13 @@ export function UserList() {
                         {canMute && (
                           <button
                             type="button"
-                            onClick={() => handleModeration("mute_user", user.id, user.username)}
+                            onClick={() =>
+                              handleModeration(
+                                'mute_user',
+                                user.id,
+                                user.username,
+                              )
+                            }
                             className="flex h-7 w-7 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(14,18,27,0.9)] text-[var(--text-muted)] transition-colors hover:border-[rgba(176,107,255,0.28)] hover:text-[#d8c1ff]"
                             aria-label={`Mutar ${user.username}`}
                             title="Mutar no chat"
@@ -213,7 +243,13 @@ export function UserList() {
                         {canKick && (
                           <button
                             type="button"
-                            onClick={() => handleModeration("kick_user", user.id, user.username)}
+                            onClick={() =>
+                              handleModeration(
+                                'kick_user',
+                                user.id,
+                                user.username,
+                              )
+                            }
                             className="flex h-7 w-7 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(14,18,27,0.9)] text-[var(--text-muted)] transition-colors hover:border-[rgba(255,181,71,0.26)] hover:text-[var(--warning)]"
                             aria-label={`Expulsar ${user.username}`}
                             title="Expulsar da sala"
@@ -225,7 +261,13 @@ export function UserList() {
                         {canBan && (
                           <button
                             type="button"
-                            onClick={() => handleModeration("ban_user", user.id, user.username)}
+                            onClick={() =>
+                              handleModeration(
+                                'ban_user',
+                                user.id,
+                                user.username,
+                              )
+                            }
                             className="flex h-7 w-7 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(14,18,27,0.9)] text-[var(--text-muted)] transition-colors hover:border-[rgba(255,97,88,0.26)] hover:text-[var(--danger)]"
                             aria-label={`Banir ${user.username}`}
                             title="Banir da sala"
@@ -243,45 +285,48 @@ export function UserList() {
         )
       })}
     </div>
-  );
+  )
 }
 
 export function DJQueue() {
-  const queue = useRoomStore((s) => s.queue);
-  const users = useRoomStore((s) => s.users);
-  const playback = useRoomStore((s) => s.playback);
-  const currentUserId = useAuthStore((s) => s.user?.id);
-  const wsClient = useAuthStore((s) => s.wsClient);
-  const [draggedUserId, setDraggedUserId] = useState<string | null>(null);
-  const [dropUserId, setDropUserId] = useState<string | null>(null);
+  const queue = useRoomStore((s) => s.queue)
+  const users = useRoomStore((s) => s.users)
+  const playback = useRoomStore((s) => s.playback)
+  const currentUserId = useAuthStore((s) => s.user?.id)
+  const wsClient = useAuthStore((s) => s.wsClient)
+  const [draggedUserId, setDraggedUserId] = useState<string | null>(null)
+  const [dropUserId, setDropUserId] = useState<string | null>(null)
 
-  const getUser = (userId: string) => users.find((user) => user.id === userId);
-  const currentUser = users.find((candidate) => candidate.id === currentUserId);
-  const canManageQueue = roomRoleHasPermission(currentUser?.role, "manage_queue");
-  const pinnedDjId = playback?.djId ?? null;
+  const getUser = (userId: string) => users.find((user) => user.id === userId)
+  const currentUser = users.find((candidate) => candidate.id === currentUserId)
+  const canManageQueue = roomRoleHasPermission(
+    currentUser?.role,
+    'manage_queue',
+  )
+  const pinnedDjId = playback?.djId ?? null
 
   const handleDrop = (targetUserId: string, targetIndex: number) => {
-    if (!canManageQueue || !draggedUserId || !wsClient) return;
+    if (!canManageQueue || !draggedUserId || !wsClient) return
     if (draggedUserId === targetUserId) {
-      setDraggedUserId(null);
-      setDropUserId(null);
-      return;
+      setDraggedUserId(null)
+      setDropUserId(null)
+      return
     }
 
     if (pinnedDjId && targetIndex === 0) {
-      setDraggedUserId(null);
-      setDropUserId(null);
-      return;
+      setDraggedUserId(null)
+      setDropUserId(null)
+      return
     }
 
-    wsClient.send("reorder_queue", {
+    wsClient.send('reorder_queue', {
       targetUserId: draggedUserId,
       toPosition: targetIndex,
-    });
+    })
 
-    setDraggedUserId(null);
-    setDropUserId(null);
-  };
+    setDraggedUserId(null)
+    setDropUserId(null)
+  }
 
   if (queue.length === 0) {
     return (
@@ -289,9 +334,11 @@ export function DJQueue() {
         <div className="h-10 w-10 rounded-xl border border-[rgba(255,255,255,0.1)] bg-[rgba(16,21,30,0.95)] text-[var(--text-muted)] flex items-center justify-center mb-2.5">
           <Mic2 className="h-4.5 w-4.5" />
         </div>
-        <p className="text-xs font-semibold text-[var(--text-secondary)]">Fila vazia</p>
+        <p className="text-xs font-semibold text-[var(--text-secondary)]">
+          Fila vazia
+        </p>
       </div>
-    );
+    )
   }
 
   return (
@@ -303,11 +350,13 @@ export function DJQueue() {
       )}
 
       {queue.map((userId, index) => {
-        const user = getUser(userId);
-        const username = user?.username || userId;
-        const isPinnedDj = Boolean(pinnedDjId && userId === pinnedDjId && index === 0);
-        const draggable = canManageQueue && !isPinnedDj;
-        const isDropTarget = dropUserId === userId && draggedUserId !== userId;
+        const user = getUser(userId)
+        const username = user?.username || userId
+        const isPinnedDj = Boolean(
+          pinnedDjId && userId === pinnedDjId && index === 0,
+        )
+        const draggable = canManageQueue && !isPinnedDj
+        const isDropTarget = dropUserId === userId && draggedUserId !== userId
 
         return (
           <motion.div
@@ -317,37 +366,39 @@ export function DJQueue() {
             transition={{ duration: 0.16, delay: index * 0.015 }}
             draggable={draggable}
             onDragStart={() => {
-              if (!draggable) return;
-              setDraggedUserId(userId);
+              if (!draggable) return
+              setDraggedUserId(userId)
             }}
             onDragEnd={() => {
-              setDraggedUserId(null);
-              setDropUserId(null);
+              setDraggedUserId(null)
+              setDropUserId(null)
             }}
             onDragOver={(event) => {
-              if (!canManageQueue || !draggedUserId || isPinnedDj) return;
-              event.preventDefault();
-              setDropUserId(userId);
+              if (!canManageQueue || !draggedUserId || isPinnedDj) return
+              event.preventDefault()
+              setDropUserId(userId)
             }}
             onDragLeave={() => {
               if (dropUserId === userId) {
-                setDropUserId(null);
+                setDropUserId(null)
               }
             }}
             onDrop={(event) => {
-              event.preventDefault();
-              handleDrop(userId, index);
+              event.preventDefault()
+              handleDrop(userId, index)
             }}
             className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 shadow-[0_8px_18px_rgba(0,0,0,0.24)] ${
               isDropTarget
-                ? "border-[rgba(176,107,255,0.32)] bg-[rgba(42,27,61,0.92)]"
-                : "border-[rgba(255,255,255,0.08)] bg-[rgba(15,20,29,0.95)]"
-            } ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
+                ? 'border-[rgba(176,107,255,0.32)] bg-[rgba(42,27,61,0.92)]'
+                : 'border-[rgba(255,255,255,0.08)] bg-[rgba(15,20,29,0.95)]'
+            } ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
           >
             {canManageQueue ? (
               <div
                 className={`flex h-6 w-4 shrink-0 items-center justify-center ${
-                  draggable ? "text-[var(--text-muted)]" : "text-[rgba(255,255,255,0.2)]"
+                  draggable
+                    ? 'text-[var(--text-muted)]'
+                    : 'text-[rgba(255,255,255,0.2)]'
                 }`}
               >
                 <GripVertical className="h-4 w-4" />
@@ -358,15 +409,24 @@ export function DJQueue() {
               {index + 1}
             </div>
 
-            <Avatar username={username} src={user?.avatar} size="sm" className="h-7 w-7" />
+            <Avatar
+              username={username}
+              src={user?.avatar}
+              size="sm"
+              className="h-7 w-7"
+            />
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-semibold text-[var(--text-primary)]">{username}</p>
-              <p className="text-[10px] text-[var(--text-muted)]">{index === 0 ? "DJ atual" : "na fila"}</p>
+              <p className="truncate text-[12px] font-semibold text-[var(--text-primary)]">
+                {username}
+              </p>
+              <p className="text-[10px] text-[var(--text-muted)]">
+                {index === 0 ? 'DJ atual' : 'na fila'}
+              </p>
             </div>
           </motion.div>
-        );
+        )
       })}
     </div>
-  );
+  )
 }

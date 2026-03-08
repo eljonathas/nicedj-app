@@ -14,7 +14,8 @@ import { Button } from '../components/ui/Button'
 import { SpriteAvatar } from '../components/ui/SpriteAvatar'
 import { getLevelProgress } from '../lib/progression'
 import { useAuthStore } from '../stores/authStore'
-import { type AvatarStoreItem, useEconomyStore } from '../stores/economyStore'
+import { useEconomyStore } from '../stores/economyStore'
+import type { AvatarStoreItem } from '../stores/economyStore'
 
 const ITEM_BATCH_SIZE = 24
 const LEVEL_GROUP_BATCH_SIZE = 3

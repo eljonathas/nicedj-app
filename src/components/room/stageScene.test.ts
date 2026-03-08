@@ -14,7 +14,9 @@ import {
 
 describe('stageScene', () => {
   it('preserves the frontend booth and audience offsets on full-size viewports', () => {
-    expect(resolveStageViewportMetrics(DESKTOP_STAGE_REFERENCE_WIDTH, 640)).toEqual({
+    expect(
+      resolveStageViewportMetrics(DESKTOP_STAGE_REFERENCE_WIDTH, 640),
+    ).toEqual({
       sceneScale: 1,
       audienceBottom: AUDIENCE_BOTTOM,
       audienceHeight: AUDIENCE_CANVAS_HEIGHT,
@@ -29,7 +31,10 @@ describe('stageScene', () => {
     const expectedScale = 280 / LEGACY_STAGE_SCENE_HEIGHT
 
     expect(metrics.sceneScale).toBeCloseTo(expectedScale, 8)
-    expect(metrics.audienceBottom).toBeCloseTo(AUDIENCE_BOTTOM * expectedScale, 8)
+    expect(metrics.audienceBottom).toBeCloseTo(
+      AUDIENCE_BOTTOM * expectedScale,
+      8,
+    )
     expect(metrics.audienceHeight).toBeCloseTo(
       AUDIENCE_CANVAS_HEIGHT * expectedScale,
       8,
@@ -40,14 +45,18 @@ describe('stageScene', () => {
   it('dampens the audience growth on larger desktop viewports instead of hard-capping it', () => {
     expect(resolveStageLayoutWidth(1176)).toBe(1176)
     expect(resolveStageLayoutWidth(1600)).toBeCloseTo(
-      DESKTOP_STAGE_REFERENCE_WIDTH + (1600 - DESKTOP_STAGE_REFERENCE_WIDTH) * 0.58,
+      DESKTOP_STAGE_REFERENCE_WIDTH +
+        (1600 - DESKTOP_STAGE_REFERENCE_WIDTH) * 0.58,
       8,
     )
     expect(resolveStageLayoutWidth(980)).toBe(980)
   })
 
   it('applies a smooth scene-scale boost only when the viewport grows beyond the desktop reference', () => {
-    const baseline = resolveStageViewportMetrics(DESKTOP_STAGE_REFERENCE_WIDTH, 640)
+    const baseline = resolveStageViewportMetrics(
+      DESKTOP_STAGE_REFERENCE_WIDTH,
+      640,
+    )
     const wide = resolveStageViewportMetrics(1600, 640)
 
     expect(baseline.sceneScale).toBe(1)
@@ -78,11 +87,16 @@ describe('stageScene', () => {
   })
 
   it('returns stable DJ booth render metrics for standard and special avatars', () => {
-    const classicRender = resolveDjSpriteRenderMetrics('/sprites/free_15/free/base01.png')
+    const classicRender = resolveDjSpriteRenderMetrics(
+      '/sprites/free_15/free/base01.png',
+    )
     const dragonRender = resolveDjSpriteRenderMetrics(
       '/sprites/subscription_44/subscription_required/dragon-e01.png',
     )
-    const danceVariant = resolveAudienceSpriteSheet('/sprites/free_15/free/base01.png', 'b')
+    const danceVariant = resolveAudienceSpriteSheet(
+      '/sprites/free_15/free/base01.png',
+      'b',
+    )
 
     expect(danceVariant).toBe('/sprites/free_15/free/base01b.png')
     expect(classicRender.sheetUrl).toBe('/sprites/free_15/free/base01dj.png')

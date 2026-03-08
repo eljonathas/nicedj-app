@@ -1,65 +1,72 @@
-import { useEffect, useRef } from "react";
-import { useRoomStore } from "../../stores/roomStore";
-import { getPlaybackPositionMs } from "../../lib/playback";
+import { useEffect, useRef } from 'react'
+import { useRoomStore } from '../../stores/roomStore'
+import { getPlaybackPositionMs } from '../../lib/playback'
 
 declare global {
   interface Window {
-    SC: any;
+    SC: any
   }
 }
 
 export function SoundCloudPlayer() {
-  const playback = useRoomStore((s) => s.playback);
-  const playerVolume = useRoomStore((s) => s.playerVolume);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const scriptLoaded = useRef(false);
-  const widgetRef = useRef<any>(null);
+  const playback = useRoomStore((s) => s.playback)
+  const playerVolume = useRoomStore((s) => s.playerVolume)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const scriptLoaded = useRef(false)
+  const widgetRef = useRef<any>(null)
 
   useEffect(() => {
-    if (scriptLoaded.current) return;
+    if (scriptLoaded.current) return
 
-    const existing = document.querySelector('script[src*="soundcloud.com/player/api"]');
+    const existing = document.querySelector(
+      'script[src*="soundcloud.com/player/api"]',
+    )
     if (existing) {
-      scriptLoaded.current = true;
-      return;
+      scriptLoaded.current = true
+      return
     }
 
-    const script = document.createElement("script");
-    script.src = "https://w.soundcloud.com/player/api.js";
-    script.async = true;
+    const script = document.createElement('script')
+    script.src = 'https://w.soundcloud.com/player/api.js'
+    script.async = true
     script.onload = () => {
-      scriptLoaded.current = true;
-    };
+      scriptLoaded.current = true
+    }
 
-    document.head.appendChild(script);
-  }, []);
+    document.head.appendChild(script)
+  }, [])
 
   useEffect(() => {
-    if (!iframeRef.current || !window.SC || !playback) return;
+    if (!iframeRef.current || !window.SC || !playback) return
 
-    const widget = window.SC.Widget(iframeRef.current);
-    widgetRef.current = widget;
+    const widget = window.SC.Widget(iframeRef.current)
+    widgetRef.current = widget
 
     widget.bind(window.SC.Widget.Events.READY, () => {
-      widget.seekTo(getPlaybackPositionMs(playback));
-      widget.setVolume(playerVolume);
+      widget.seekTo(getPlaybackPositionMs(playback))
+      widget.setVolume(playerVolume)
 
       if (playback.paused) {
-        widget.pause();
+        widget.pause()
       } else {
-        widget.play();
+        widget.play()
       }
-    });
-  }, [playback?.sourceId, playback?.paused, playback?.pauseOffsetMs, playback?.startedAtServerMs]);
+    })
+  }, [
+    playback?.sourceId,
+    playback?.paused,
+    playback?.pauseOffsetMs,
+    playback?.startedAtServerMs,
+  ])
 
   useEffect(() => {
-    if (!widgetRef.current) return;
-    widgetRef.current.setVolume(playerVolume);
-  }, [playerVolume]);
+    if (!widgetRef.current) return
+    widgetRef.current.setVolume(playerVolume)
+  }, [playerVolume])
 
-  if (!playback || playback.source !== "soundcloud") return null;
+  if (!playback || playback.source !== 'soundcloud') return null
 
-  const scUrl = `https://api.soundcloud.com/tracks/${playback.sourceId}`;
+  const scUrl = `https://api.soundcloud.com/tracks/${playback.sourceId}`
 
   return (
     <div className="h-full w-full bg-black">
@@ -75,5 +82,5 @@ export function SoundCloudPlayer() {
         src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(scUrl)}&auto_play=true&show_artwork=true&visual=true&color=%231db954`}
       />
     </div>
-  );
+  )
 }

@@ -1,57 +1,61 @@
-import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, Sparkles, X } from "lucide-react";
-import { api } from "../../lib/api";
-import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
+import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { AlertCircle, Sparkles, X } from 'lucide-react'
+import { api } from '../../lib/api'
+import { Button } from '../ui/Button'
+import { Input } from '../ui/Input'
 
 interface CreateRoomModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: (roomSlug: string) => void;
+  isOpen: boolean
+  onClose: () => void
+  onSuccess: (roomSlug: string) => void
 }
 
-export function CreateRoomModal({ isOpen, onClose, onSuccess }: CreateRoomModalProps) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [capacity, setCapacity] = useState(50);
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function CreateRoomModal({
+  isOpen,
+  onClose,
+  onSuccess,
+}: CreateRoomModalProps) {
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [capacity, setCapacity] = useState(50)
+  const [isPrivate, setIsPrivate] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+    event.preventDefault()
 
     if (!name.trim()) {
-      setError("O nome da sala é obrigatório.");
-      return;
+      setError('O nome da sala é obrigatório.')
+      return
     }
 
-    setError(null);
-    setIsLoading(true);
+    setError(null)
+    setIsLoading(true)
 
     const slug = name
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)+/g, "");
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '')
 
     try {
-      const result = await api<{ slug: string }>("/api/rooms", {
-        method: "POST",
+      const result = await api<{ slug: string }>('/api/rooms', {
+        method: 'POST',
         body: { name, slug, description, capacity, isPrivate },
-      });
+      })
 
-      onSuccess(result.slug);
-      setName("");
-      setDescription("");
-      setCapacity(50);
-      setIsPrivate(false);
+      onSuccess(result.slug)
+      setName('')
+      setDescription('')
+      setCapacity(50)
+      setIsPrivate(false)
     } catch (err: any) {
-      setError(err.message || "Não foi possível criar essa sala.");
+      setError(err.message || 'Não foi possível criar essa sala.')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <AnimatePresence>
@@ -75,12 +79,16 @@ export function CreateRoomModal({ isOpen, onClose, onSuccess }: CreateRoomModalP
             >
               <div className="flex items-start justify-between gap-4 border-b border-[var(--border-light)] pb-5">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nova comunidade</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                    Nova comunidade
+                  </p>
                   <h2 className="section-title mt-2 flex items-center gap-2 text-2xl font-extrabold tracking-tight">
                     <Sparkles className="h-5 w-5 text-[var(--accent-hover)]" />
                     Criar sala
                   </h2>
-                  <p className="mt-1 text-sm text-[var(--text-secondary)]">Defina identidade, capacidade e visibilidade da sala.</p>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                    Defina identidade, capacidade e visibilidade da sala.
+                  </p>
                 </div>
 
                 <button
@@ -117,11 +125,15 @@ export function CreateRoomModal({ isOpen, onClose, onSuccess }: CreateRoomModalP
                     min={2}
                     max={200}
                     value={capacity}
-                    onChange={(event) => setCapacity(Number(event.target.value))}
+                    onChange={(event) =>
+                      setCapacity(Number(event.target.value))
+                    }
                   />
 
                   <label className="flex h-full items-end rounded-xl border border-[var(--border)] bg-[rgba(23,30,42,0.8)] px-4 py-3">
-                    <span className="flex-1 text-sm font-medium text-[var(--text-secondary)]">Sala privada</span>
+                    <span className="flex-1 text-sm font-medium text-[var(--text-secondary)]">
+                      Sala privada
+                    </span>
                     <input
                       type="checkbox"
                       checked={isPrivate}
@@ -139,10 +151,19 @@ export function CreateRoomModal({ isOpen, onClose, onSuccess }: CreateRoomModalP
                 )}
 
                 <div className="pt-2 flex gap-3">
-                  <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={onClose}
+                    className="flex-1"
+                  >
                     Cancelar
                   </Button>
-                  <Button type="submit" isLoading={isLoading} className="flex-1">
+                  <Button
+                    type="submit"
+                    isLoading={isLoading}
+                    className="flex-1"
+                  >
                     Criar e entrar
                   </Button>
                 </div>
@@ -152,5 +173,5 @@ export function CreateRoomModal({ isOpen, onClose, onSuccess }: CreateRoomModalP
         </>
       )}
     </AnimatePresence>
-  );
+  )
 }

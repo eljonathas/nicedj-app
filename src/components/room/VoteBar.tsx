@@ -1,8 +1,4 @@
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   ArrowRight,
   Heart,
@@ -278,9 +274,7 @@ function useVoteBarState() {
 
   const isInQueue = Boolean(user?.id && queue.includes(user.id))
   const isCurrentDJ = playbackDjId === user?.id
-  const hasWooted = Boolean(
-    user?.id && votes.wootUserIds.includes(user.id),
-  )
+  const hasWooted = Boolean(user?.id && votes.wootUserIds.includes(user.id))
 
   const handleVote = (type: VoteType) => {
     wsClient?.send('vote', { type })

@@ -14,12 +14,9 @@ describe('roles presence hierarchy', () => {
       { username: 'CohostUser', role: 'cohost', platformRole: 'none' },
     ]
 
-    expect([...users].sort(compareUserPresencePriority).map((user) => user.username)).toEqual([
-      'DevUser',
-      'AmbUser',
-      'HostUser',
-      'CohostUser',
-    ])
+    expect(
+      [...users].sort(compareUserPresencePriority).map((user) => user.username),
+    ).toEqual(['DevUser', 'AmbUser', 'HostUser', 'CohostUser'])
   })
 
   it('maps special flags to their own titled sections', () => {

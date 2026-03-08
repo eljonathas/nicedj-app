@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import YouTube, {
-  type YouTubeEvent,
-  type YouTubePlayer as YouTubePlayerApi,
+import YouTube from 'react-youtube'
+import type {
+  YouTubeEvent,
+  YouTubePlayer as YouTubePlayerApi,
 } from 'react-youtube'
 import { getPlaybackPositionMs } from '../../lib/playback'
 import { useRoomStore } from '../../stores/roomStore'

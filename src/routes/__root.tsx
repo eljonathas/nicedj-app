@@ -119,11 +119,10 @@ function RootLayout() {
 
               <nav className="flex w-full flex-col items-center gap-2">
                 {navItems.map((item) => {
-                  const isActive =
-                    useFloatingMenus
-                      ? floatingPanel?.view === item.floatingView
-                      : location.pathname === item.to ||
-                        location.pathname.startsWith(`${item.to}/`)
+                  const isActive = useFloatingMenus
+                    ? floatingPanel?.view === item.floatingView
+                    : location.pathname === item.to ||
+                      location.pathname.startsWith(`${item.to}/`)
                   const itemClassName = `flex h-12 w-12 items-center justify-center rounded-2xl border transition-all ${
                     isActive
                       ? 'border-[rgba(55,210,124,0.26)] bg-[rgba(11,29,19,0.86)] text-[var(--accent-hover)]'

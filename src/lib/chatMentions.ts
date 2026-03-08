@@ -150,7 +150,10 @@ export function getActiveMentionDraft(
   content: string,
   caretPosition: number | null | undefined,
 ): ActiveMentionDraft | null {
-  const safeCaretPosition = Math.max(0, Math.min(content.length, caretPosition ?? content.length))
+  const safeCaretPosition = Math.max(
+    0,
+    Math.min(content.length, caretPosition ?? content.length),
+  )
   const prefix = content.slice(0, safeCaretPosition)
   const match = ACTIVE_MENTION_REGEX.exec(prefix)
 

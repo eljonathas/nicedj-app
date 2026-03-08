@@ -1,271 +1,318 @@
-type EventHandler = (payload: Record<string, unknown>) => void;
+type EventHandler = (payload: Record<string, unknown>) => void
 
 interface WsMessage {
-    type: "command" | "event" | "ack" | "error";
-    event: string;
-    requestId?: string;
-    version: "v1";
-    timestamp: string;
-    payload: Record<string, unknown>;
+  type: 'command' | 'event' | 'ack' | 'error'
+  event: string
+  requestId?: string
+  version: 'v1'
+  timestamp: string
+  payload: Record<string, unknown>
 }
 
-type OutboundCommand = WsMessage & { type: "command" };
-
-const WS_PROTOCOL = "nicedj.v1";
-const WS_AUTH_PROTOCOL_PREFIX = "bearer.";
+type OutboundCommand = WsMessage & { type: 'command' }
 
 const ROOM_SCOPED_COMMANDS = new Set([
-    "send_chat",
-    "vote",
-    "join_queue",
-    "leave_queue",
-    "reorder_queue",
-    "enqueue_track",
-    "remove_from_playlist",
-    "reorder_playlist",
-    "skip",
-    "pause",
-    "resume",
-    "ban_user",
-    "mute_user",
-    "kick_user",
-    "clear_chat",
-]);
+  'send_chat',
+  'vote',
+  'join_queue',
+  'leave_queue',
+  'reorder_queue',
+  'enqueue_track',
+  'remove_from_playlist',
+  'reorder_playlist',
+  'skip',
+  'pause',
+  'resume',
+  'ban_user',
+  'mute_user',
+  'kick_user',
+  'clear_chat',
+])
 
 export class WsClient {
-    private ws: WebSocket | null = null;
-    private url: string;
-    private listeners: Map<string, Set<EventHandler>> = new Map();
-    private reconnectAttempts = 0;
-    private maxReconnectAttempts = 10;
-    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-    private requestIdCounter = 0;
-    private pendingCommands: OutboundCommand[] = [];
-    private readonly maxPendingCommands = 100;
-    private activeRoomId: string | null = null;
-    private joinedRoomId: string | null = null;
-    private protocols: string[];
+  private ws: WebSocket | null = null
+  private readonly token: string
+  private url: string
+  private listeners: Map<string, Set<EventHandler>> = new Map()
+  private reconnectAttempts = 0
+  private maxReconnectAttempts = 10
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private requestIdCounter = 0
+  private pendingCommands: OutboundCommand[] = []
+  private readonly maxPendingCommands = 100
+  private activeRoomId: string | null = null
+  private authenticated = false
+  private joinedRoomId: string | null = null
 
-    constructor(token: string) {
-        const base = import.meta.env.VITE_WS_URL || "ws://localhost:3000/ws";
-        this.url = base;
-        this.protocols = [WS_PROTOCOL, `${WS_AUTH_PROTOCOL_PREFIX}${token}`];
+  constructor(token: string) {
+    this.token = token
+    const base = import.meta.env.VITE_WS_URL || 'ws://localhost:3000/ws'
+    this.url = base
+  }
+
+  connect(): void {
+    if (
+      this.ws?.readyState === WebSocket.OPEN ||
+      this.ws?.readyState === WebSocket.CONNECTING
+    )
+      return
+
+    this.ws = new WebSocket(this.url)
+
+    this.ws.onopen = () => {
+      this.reconnectAttempts = 0
+      this.authenticated = false
+      this.sendAuthenticate()
+
+      this.emit('_connected', {})
     }
 
-    connect(): void {
-        if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) return;
-
-        this.ws = new WebSocket(this.url, this.protocols);
-
-        this.ws.onopen = () => {
-            this.reconnectAttempts = 0;
-            this.startHeartbeat();
-
-            if (this.activeRoomId && this.joinedRoomId !== this.activeRoomId) {
-                this.ensureJoinQueued();
-            }
-
-            this.flushPendingCommands();
-            this.emit("_connected", {});
-        };
-
-        this.ws.onmessage = (event) => {
-            try {
-                const msg: WsMessage = JSON.parse(event.data);
-                this.handleInboundState(msg);
-                this.emit(msg.event, msg.payload);
-            } catch {
-                // ignore malformed messages
-            }
-        };
-
-        this.ws.onclose = () => {
-            this.stopHeartbeat();
-            this.joinedRoomId = null;
-            this.emit("_disconnected", {});
-            this.scheduleReconnect();
-        };
-
-        this.ws.onerror = () => {
-            this.ws?.close();
-        };
+    this.ws.onmessage = (event) => {
+      try {
+        const msg: WsMessage = JSON.parse(event.data)
+        this.handleInboundState(msg)
+        this.emit(msg.event, msg.payload)
+      } catch {
+        // ignore malformed messages
+      }
     }
 
-    disconnect(): void {
-        this.maxReconnectAttempts = 0;
-        if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-        this.stopHeartbeat();
-        this.ws?.close();
-        this.ws = null;
-        this.pendingCommands = [];
-        this.activeRoomId = null;
-        this.joinedRoomId = null;
+    this.ws.onclose = () => {
+      this.stopHeartbeat()
+      this.authenticated = false
+      this.joinedRoomId = null
+      this.emit('_disconnected', {})
+      this.scheduleReconnect()
     }
 
-    send(event: string, payload: Record<string, unknown> = {}): string {
-        if (event === "join_room" && typeof payload.roomId === "string") {
-            this.activeRoomId = payload.roomId;
-            this.joinedRoomId = null;
-            this.pendingCommands = this.pendingCommands.filter((command) => {
-                if (command.event === "leave_room") return false;
-                if (command.event === "join_room" && command.payload.roomId !== payload.roomId) return false;
-                return true;
-            });
-        }
+    this.ws.onerror = () => {
+      this.ws?.close()
+    }
+  }
 
-        if (event === "leave_room") {
-            this.activeRoomId = null;
-            this.joinedRoomId = null;
-            this.pendingCommands = this.pendingCommands.filter(
-                (command) => !ROOM_SCOPED_COMMANDS.has(command.event) && command.event !== "join_room"
-            );
-        }
+  disconnect(): void {
+    this.maxReconnectAttempts = 0
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    this.stopHeartbeat()
+    this.ws?.close()
+    this.ws = null
+    this.pendingCommands = []
+    this.activeRoomId = null
+    this.authenticated = false
+    this.joinedRoomId = null
+  }
 
-        const msg = this.buildCommand(event, payload);
-
-        if (this.ws?.readyState === WebSocket.OPEN) {
-            if (this.shouldHoldUntilJoin(msg)) {
-                this.enqueue(msg);
-                this.ensureJoinQueued();
-            } else {
-                this.sendRaw(msg);
-            }
-        } else if (event !== "ping") {
-            this.enqueue(msg);
-        }
-
-        return msg.requestId || "";
+  send(event: string, payload: Record<string, unknown> = {}): string {
+    if (event === 'join_room' && typeof payload.roomId === 'string') {
+      this.activeRoomId = payload.roomId
+      this.joinedRoomId = null
+      this.pendingCommands = this.pendingCommands.filter((command) => {
+        if (command.event === 'leave_room') return false
+        if (
+          command.event === 'join_room' &&
+          command.payload.roomId !== payload.roomId
+        )
+          return false
+        return true
+      })
     }
 
-    on(event: string, handler: EventHandler): () => void {
-        if (!this.listeners.has(event)) {
-            this.listeners.set(event, new Set());
-        }
-
-        this.listeners.get(event)!.add(handler);
-
-        return () => {
-            this.listeners.get(event)?.delete(handler);
-        };
+    if (event === 'leave_room') {
+      this.activeRoomId = null
+      this.joinedRoomId = null
+      this.pendingCommands = this.pendingCommands.filter(
+        (command) =>
+          !ROOM_SCOPED_COMMANDS.has(command.event) &&
+          command.event !== 'join_room',
+      )
     }
 
-    private handleInboundState(msg: WsMessage): void {
-        if (msg.type === "ack" && msg.event === "join_room" && typeof msg.payload.roomId === "string") {
-            this.joinedRoomId = msg.payload.roomId;
-            this.flushPendingCommands();
-            return;
-        }
+    const msg = this.buildCommand(event, payload)
 
-        if (msg.type === "ack" && msg.event === "leave_room") {
-            this.joinedRoomId = null;
-            return;
-        }
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      if (!this.authenticated && event !== 'ping') {
+        this.enqueue(msg)
+        return msg.requestId || ''
+      }
 
-        const serverError = msg.type === "error" ? msg.payload?.message : undefined;
-        if (serverError === "Not in a room" && this.activeRoomId) {
-            this.joinedRoomId = null;
-            this.ensureJoinQueued();
-            this.flushPendingCommands();
-        }
+      if (this.shouldHoldUntilJoin(msg)) {
+        this.enqueue(msg)
+        this.ensureJoinQueued()
+      } else {
+        this.sendRaw(msg)
+      }
+    } else if (event !== 'ping') {
+      this.enqueue(msg)
     }
 
-    private emit(event: string, payload: Record<string, unknown>): void {
-        this.listeners.get(event)?.forEach((handler) => handler(payload));
+    return msg.requestId || ''
+  }
+
+  on(event: string, handler: EventHandler): () => void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set())
     }
 
-    private buildCommand(event: string, payload: Record<string, unknown>): OutboundCommand {
-        return {
-            type: "command",
-            event,
-            requestId: `req-${++this.requestIdCounter}-${Date.now()}`,
-            version: "v1",
-            timestamp: new Date().toISOString(),
-            payload,
-        };
+    this.listeners.get(event)!.add(handler)
+
+    return () => {
+      this.listeners.get(event)?.delete(handler)
+    }
+  }
+
+  private handleInboundState(msg: WsMessage): void {
+    if (msg.type === 'ack' && msg.event === 'authenticate') {
+      this.authenticated = true
+      this.stopHeartbeat()
+      this.startHeartbeat()
+
+      if (this.activeRoomId && this.joinedRoomId !== this.activeRoomId) {
+        this.ensureJoinQueued()
+      }
+
+      this.flushPendingCommands()
+      return
     }
 
-    private sendRaw(msg: OutboundCommand): void {
-        this.ws?.send(JSON.stringify(msg));
+    if (
+      msg.type === 'ack' &&
+      msg.event === 'join_room' &&
+      typeof msg.payload.roomId === 'string'
+    ) {
+      this.joinedRoomId = msg.payload.roomId
+      this.flushPendingCommands()
+      return
     }
 
-    private enqueue(msg: OutboundCommand): void {
-        this.pendingCommands.push(msg);
-
-        if (this.pendingCommands.length > this.maxPendingCommands) {
-            this.pendingCommands.shift();
-        }
+    if (msg.type === 'ack' && msg.event === 'leave_room') {
+      this.joinedRoomId = null
+      return
     }
 
-    private ensureJoinQueued(): void {
-        if (!this.activeRoomId) return;
+    const serverError = msg.type === 'error' ? msg.payload?.message : undefined
+    if (serverError === 'Not in a room' && this.activeRoomId) {
+      this.joinedRoomId = null
+      this.ensureJoinQueued()
+      this.flushPendingCommands()
+    }
+  }
 
-        const alreadyQueued = this.pendingCommands.some(
-            (command) => command.event === "join_room" && command.payload.roomId === this.activeRoomId
-        );
+  private emit(event: string, payload: Record<string, unknown>): void {
+    this.listeners.get(event)?.forEach((handler) => handler(payload))
+  }
 
-        if (alreadyQueued) return;
+  private buildCommand(
+    event: string,
+    payload: Record<string, unknown>,
+  ): OutboundCommand {
+    return {
+      type: 'command',
+      event,
+      requestId: `req-${++this.requestIdCounter}-${Date.now()}`,
+      version: 'v1',
+      timestamp: new Date().toISOString(),
+      payload,
+    }
+  }
 
-        const joinCommand = this.buildCommand("join_room", { roomId: this.activeRoomId });
-        this.pendingCommands.unshift(joinCommand);
+  private sendRaw(msg: OutboundCommand): void {
+    this.ws?.send(JSON.stringify(msg))
+  }
+
+  private sendAuthenticate(): void {
+    this.sendRaw(
+      this.buildCommand('authenticate', {
+        token: this.token,
+      }),
+    )
+  }
+
+  private enqueue(msg: OutboundCommand): void {
+    this.pendingCommands.push(msg)
+
+    if (this.pendingCommands.length > this.maxPendingCommands) {
+      this.pendingCommands.shift()
+    }
+  }
+
+  private ensureJoinQueued(): void {
+    if (!this.activeRoomId) return
+
+    const alreadyQueued = this.pendingCommands.some(
+      (command) =>
+        command.event === 'join_room' &&
+        command.payload.roomId === this.activeRoomId,
+    )
+
+    if (alreadyQueued) return
+
+    const joinCommand = this.buildCommand('join_room', {
+      roomId: this.activeRoomId,
+    })
+    this.pendingCommands.unshift(joinCommand)
+  }
+
+  private flushPendingCommands(): void {
+    if (
+      this.ws?.readyState !== WebSocket.OPEN ||
+      !this.authenticated ||
+      this.pendingCommands.length === 0
+    ) {
+      return
     }
 
-    private flushPendingCommands(): void {
-        if (this.ws?.readyState !== WebSocket.OPEN || this.pendingCommands.length === 0) {
-            return;
-        }
+    const remaining: OutboundCommand[] = []
 
-        const remaining: OutboundCommand[] = [];
+    for (const command of this.pendingCommands) {
+      if (this.shouldHoldUntilJoin(command)) {
+        remaining.push(command)
+        continue
+      }
 
-        for (const command of this.pendingCommands) {
-            if (this.shouldHoldUntilJoin(command)) {
-                remaining.push(command);
-                continue;
-            }
-
-            this.sendRaw(command);
-        }
-
-        this.pendingCommands = remaining;
+      this.sendRaw(command)
     }
 
-    private shouldHoldUntilJoin(command: OutboundCommand): boolean {
-        if (!ROOM_SCOPED_COMMANDS.has(command.event)) {
-            return false;
-        }
+    this.pendingCommands = remaining
+  }
 
-        if (!this.activeRoomId) {
-            return false;
-        }
-
-        return this.joinedRoomId !== this.activeRoomId;
+  private shouldHoldUntilJoin(command: OutboundCommand): boolean {
+    if (!ROOM_SCOPED_COMMANDS.has(command.event)) {
+      return false
     }
 
-    private scheduleReconnect(): void {
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) return;
-
-        const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-        this.reconnectAttempts++;
-
-        this.reconnectTimer = setTimeout(() => {
-            this.connect();
-        }, delay);
+    if (!this.activeRoomId) {
+      return false
     }
 
-    private startHeartbeat(): void {
-        this.heartbeatTimer = setInterval(() => {
-            this.send("ping");
-        }, 25000);
-    }
+    return this.joinedRoomId !== this.activeRoomId
+  }
 
-    private stopHeartbeat(): void {
-        if (this.heartbeatTimer) {
-            clearInterval(this.heartbeatTimer);
-            this.heartbeatTimer = null;
-        }
-    }
+  private scheduleReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) return
 
-    get isConnected(): boolean {
-        return this.ws?.readyState === WebSocket.OPEN;
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000)
+    this.reconnectAttempts++
+
+    this.reconnectTimer = setTimeout(() => {
+      this.connect()
+    }, delay)
+  }
+
+  private startHeartbeat(): void {
+    this.heartbeatTimer = setInterval(() => {
+      this.send('ping')
+    }, 25000)
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
     }
+  }
+
+  get isConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN
+  }
 }

@@ -209,7 +209,9 @@ export function PlaylistsPage() {
 
     const nextTrackIds = [
       trackId,
-      ...tracks.filter((track) => track.id !== trackId).map((track) => track.id),
+      ...tracks
+        .filter((track) => track.id !== trackId)
+        .map((track) => track.id),
     ]
 
     await commitTrackOrder(nextTrackIds)
@@ -245,10 +247,7 @@ export function PlaylistsPage() {
     const placement = offsetY < bounds.height / 2 ? 'before' : 'after'
 
     setDropTarget((current) => {
-      if (
-        current?.trackId === trackId &&
-        current.placement === placement
-      ) {
+      if (current?.trackId === trackId && current.placement === placement) {
         return current
       }
 
@@ -298,8 +297,7 @@ export function PlaylistsPage() {
   const mediaInputIsUrl = looksLikeMediaUrl(mediaInputTrimmed)
   const mediaBusy = searchLoading || submittingMedia
   const trackSourceKeys = useMemo(
-    () =>
-      new Set(tracks.map((track) => `${track.source}:${track.sourceId}`)),
+    () => new Set(tracks.map((track) => `${track.source}:${track.sourceId}`)),
     [tracks],
   )
 
@@ -522,7 +520,9 @@ export function PlaylistsPage() {
                             ) : (
                               <Button
                                 size="sm"
-                                onClick={() => void handleAddSearchResult(result)}
+                                onClick={() =>
+                                  void handleAddSearchResult(result)
+                                }
                                 isLoading={
                                   addingSearchResultId === result.sourceId
                                 }
@@ -578,9 +578,12 @@ export function PlaylistsPage() {
                           onDragOver={(event) =>
                             handleTrackDragOver(event, track.id)
                           }
-                          onDrop={(event) => void handleTrackDrop(event, track.id)}
+                          onDrop={(event) =>
+                            void handleTrackDrop(event, track.id)
+                          }
                           onDragLeave={(event) => {
-                            const nextTarget = event.relatedTarget as Node | null
+                            const nextTarget =
+                              event.relatedTarget as Node | null
                             if (!event.currentTarget.contains(nextTarget)) {
                               setDropTarget((current) =>
                                 current?.trackId === track.id ? null : current,
@@ -656,7 +659,9 @@ export function PlaylistsPage() {
 
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => void handleMoveTrackToFirst(track.id)}
+                              onClick={() =>
+                                void handleMoveTrackToFirst(track.id)
+                              }
                               disabled={index === 0 || reordering}
                               className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(11,16,24,0.84)] text-[var(--text-secondary)] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                               aria-label="Mover para o topo"

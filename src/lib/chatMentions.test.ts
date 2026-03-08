@@ -23,7 +23,9 @@ describe('chatMentions', () => {
     expect(parsed.hasMentions).toBe(true)
     expect(parsed.mentionsCurrentUser).toBe(true)
     expect(parsed.mentionedUserIds).toEqual(['user-1', 'user-2'])
-    expect(parsed.segments.filter((segment) => segment.type === 'mention')).toHaveLength(2)
+    expect(
+      parsed.segments.filter((segment) => segment.type === 'mention'),
+    ).toHaveLength(2)
   })
 
   it('ignores emails and partial matches that are not valid mentions', () => {

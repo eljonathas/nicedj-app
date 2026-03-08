@@ -1,77 +1,89 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Lock, Play, Plus, Search, Users2, AudioLines } from "lucide-react";
-import { Button } from "../components/ui/Button";
-import { Avatar } from "../components/ui/Avatar";
-import { useAuthStore } from "../stores/authStore";
-import { api } from "../lib/api";
-import { CreateRoomModal } from "../components/room/CreateRoomModal";
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { motion } from 'framer-motion'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  AlertCircle,
+  Lock,
+  Play,
+  Plus,
+  Search,
+  Users2,
+  AudioLines,
+} from 'lucide-react'
+import { Button } from '../components/ui/Button'
+import { Avatar } from '../components/ui/Avatar'
+import { useAuthStore } from '../stores/authStore'
+import { api } from '../lib/api'
+import { CreateRoomModal } from '../components/room/CreateRoomModal'
 
-export const Route = createFileRoute("/rooms")({
+export const Route = createFileRoute('/rooms')({
   component: RoomsPage,
-});
+})
 
 interface RoomData {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  ownerId: string;
-  ownerUsername: string;
-  capacity: number;
-  isPrivate: boolean;
-  activeUsersCount: number;
+  id: string
+  name: string
+  slug: string
+  description: string
+  ownerId: string
+  ownerUsername: string
+  capacity: number
+  isPrivate: boolean
+  activeUsersCount: number
   activeUsers: Array<{
-    id: string;
-    username: string;
-    avatar: string | null;
-  }>;
+    id: string
+    username: string
+    avatar: string | null
+  }>
   currentPlayback: {
-    title: string;
-    artist: string;
-    thumbnailUrl: string | null;
-  } | null;
+    title: string
+    artist: string
+    thumbnailUrl: string | null
+  } | null
 }
 
 export function RoomsPage() {
-  const [search, setSearch] = useState("");
-  const [rooms, setRooms] = useState<RoomData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const user = useAuthStore((s) => s.user);
-  const navigate = useNavigate();
+  const [search, setSearch] = useState('')
+  const [rooms, setRooms] = useState<RoomData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const user = useAuthStore((s) => s.user)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        setLoading(true);
-        const data = await api<RoomData[]>("/api/rooms");
-        setRooms(data);
+        setLoading(true)
+        const data = await api<RoomData[]>('/api/rooms')
+        setRooms(data)
       } catch (err: any) {
-        setError(err.message || "Erro ao carregar salas.");
+        setError(err.message || 'Erro ao carregar salas.')
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    fetchRooms();
-  }, []);
+    fetchRooms()
+  }, [])
 
   const filtered = useMemo(
     () =>
       rooms.filter(
         (room) =>
           room.name.toLowerCase().includes(search.toLowerCase()) ||
-          room.description.toLowerCase().includes(search.toLowerCase())
+          room.description.toLowerCase().includes(search.toLowerCase()),
       ),
-    [rooms, search]
-  );
+    [rooms, search],
+  )
 
   return (
     <div className="mx-auto w-full max-w-7xl px-5 py-6 md:px-8 md:py-8 lg:px-12">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+      >
         <header className="surface-card rounded-[1.8rem] p-5 md:p-7 lg:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -79,9 +91,12 @@ export function RoomsPage() {
                 <AudioLines className="h-3.5 w-3.5" />
                 Descoberta em tempo real
               </span>
-              <h1 className="section-title mt-4 text-3xl font-extrabold tracking-tight md:text-4xl">Salas ativas</h1>
+              <h1 className="section-title mt-4 text-3xl font-extrabold tracking-tight md:text-4xl">
+                Salas ativas
+              </h1>
               <p className="mt-2 max-w-xl text-sm md:text-base text-[var(--text-secondary)]">
-                Entre em comunidades com estilos diferentes, acompanhe o DJ da vez e participe do ranking da sala.
+                Entre em comunidades com estilos diferentes, acompanhe o DJ da
+                vez e participe do ranking da sala.
               </p>
             </div>
 
@@ -98,7 +113,11 @@ export function RoomsPage() {
               </label>
 
               {user && (
-                <Button size="md" onClick={() => setIsModalOpen(true)} className="sm:min-w-[150px]">
+                <Button
+                  size="md"
+                  onClick={() => setIsModalOpen(true)}
+                  className="sm:min-w-[150px]"
+                >
                   <Plus className="h-4 w-4" />
                   Nova sala
                 </Button>
@@ -111,7 +130,10 @@ export function RoomsPage() {
       {loading && (
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="h-[184px] animate-pulse rounded-3xl border border-[var(--border-light)] bg-[rgba(18,25,36,0.75)]" />
+            <div
+              key={index}
+              className="h-[184px] animate-pulse rounded-3xl border border-[var(--border-light)] bg-[rgba(18,25,36,0.75)]"
+            />
           ))}
         </div>
       )}
@@ -163,18 +185,25 @@ export function RoomsPage() {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="truncate text-lg font-bold text-[var(--text-primary)]">{room.name}</h3>
-                      {room.isPrivate && <Lock className="h-3.5 w-3.5 text-[var(--warning)]" />}
+                      <h3 className="truncate text-lg font-bold text-[var(--text-primary)]">
+                        {room.name}
+                      </h3>
+                      {room.isPrivate && (
+                        <Lock className="h-3.5 w-3.5 text-[var(--warning)]" />
+                      )}
                     </div>
 
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--text-muted)]">
-                      <span className="truncate">Host {room.ownerUsername}</span>
+                      <span className="truncate">
+                        Host {room.ownerUsername}
+                      </span>
                       <span className="text-[rgba(255,255,255,0.22)]">•</span>
                       <span>{room.activeUsersCount} ativos</span>
                     </div>
 
                     <p className="mt-2 line-clamp-2 text-sm text-[var(--text-secondary)]">
-                      {room.description || "Sala sem descrição. Entre para descobrir o som da comunidade."}
+                      {room.description ||
+                        'Sala sem descrição. Entre para descobrir o som da comunidade.'}
                     </p>
                   </div>
                 </div>
@@ -188,25 +217,28 @@ export function RoomsPage() {
                       {room.currentPlayback?.title ?? 'Sem set no ar'}
                     </p>
                     <p className="truncate text-[11px] text-[var(--text-secondary)]">
-                      {room.currentPlayback?.artist ?? 'Aguardando o próximo DJ'}
+                      {room.currentPlayback?.artist ??
+                        'Aguardando o próximo DJ'}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-3">
                     <div className="flex items-center">
-                      {room.activeUsers.slice(0, 4).map((activeUser, avatarIndex) => (
-                        <div
-                          key={activeUser.id}
-                          className={avatarIndex === 0 ? '' : '-ml-2'}
-                        >
-                          <Avatar
-                            username={activeUser.username}
-                            src={activeUser.avatar}
-                            size="sm"
-                            className="h-7 w-7 border border-[rgba(8,12,18,0.9)] ring-0"
-                          />
-                        </div>
-                      ))}
+                      {room.activeUsers
+                        .slice(0, 4)
+                        .map((activeUser, avatarIndex) => (
+                          <div
+                            key={activeUser.id}
+                            className={avatarIndex === 0 ? '' : '-ml-2'}
+                          >
+                            <Avatar
+                              username={activeUser.username}
+                              src={activeUser.avatar}
+                              size="sm"
+                              className="h-7 w-7 border border-[rgba(8,12,18,0.9)] ring-0"
+                            />
+                          </div>
+                        ))}
                       {room.activeUsersCount === 0 && (
                         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border-light)] bg-[rgba(14,20,30,0.82)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)]">
                           <Users2 className="h-3.5 w-3.5 text-[var(--accent-alt)]" />
@@ -215,7 +247,9 @@ export function RoomsPage() {
                       )}
                     </div>
 
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-hover)]">Entrar</span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-hover)]">
+                      Entrar
+                    </span>
                   </div>
                 </div>
               </Link>
@@ -226,9 +260,13 @@ export function RoomsPage() {
 
       {!loading && !error && filtered.length === 0 && (
         <div className="mt-12 rounded-3xl border border-[var(--border-light)] bg-[rgba(16,22,31,0.82)] p-10 text-center">
-          <p className="section-title text-2xl font-bold">Nenhuma sala encontrada</p>
+          <p className="section-title text-2xl font-bold">
+            Nenhuma sala encontrada
+          </p>
           <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            {search ? "Tente ajustar os termos da busca." : "Ainda não existem salas públicas disponíveis."}
+            {search
+              ? 'Tente ajustar os termos da busca.'
+              : 'Ainda não existem salas públicas disponíveis.'}
           </p>
           {user && (
             <Button className="mt-6" onClick={() => setIsModalOpen(true)}>
@@ -242,10 +280,10 @@ export function RoomsPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={(slug) => {
-          setIsModalOpen(false);
-          navigate({ to: `/room/${slug}` });
+          setIsModalOpen(false)
+          navigate({ to: `/room/${slug}` })
         }}
       />
     </div>
-  );
+  )
 }
