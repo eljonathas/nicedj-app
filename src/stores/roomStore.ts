@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-interface RoomUser {
+export interface RoomUser {
   id: string
   username: string
   avatar: string | null
@@ -32,7 +32,7 @@ interface Votes {
   wootUserIds: string[]
 }
 
-interface RoomInfo {
+export interface RoomInfo {
   id: string
   name: string
   slug: string
@@ -66,6 +66,7 @@ interface RoomState {
   setRoom: (room: RoomInfo | null) => void
   setUsers: (users: RoomUser[]) => void
   addUser: (user: RoomUser) => void
+  updateUser: (userId: string, patch: Partial<RoomUser>) => void
   updateUserAvatar: (userId: string, avatar: string | null) => void
   removeUser: (userId: string) => void
   setQueue: (queue: string[]) => void
@@ -139,6 +140,12 @@ export const useRoomStore = create<RoomState>((set) => ({
       }
       return { users: [...s.users, user] }
     }),
+  updateUser: (userId, patch) =>
+    set((s) => ({
+      users: s.users.map((user) =>
+        user.id === userId ? { ...user, ...patch } : user,
+      ),
+    })),
   updateUserAvatar: (userId, avatar) =>
     set((s) => ({
       users: s.users.map((user) =>

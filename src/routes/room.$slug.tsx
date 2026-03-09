@@ -223,10 +223,11 @@ function RoomPage() {
               <button
                 key={tab.id}
                 onClick={() => setActivePanel(tab.id)}
-                className={`flex h-8 items-center justify-center gap-1 rounded-md text-[11px] font-semibold transition-all ${activePanel === tab.id
-                  ? 'bg-[rgba(255,255,255,0.1)] text-white'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                  }`}
+                className={`flex h-8 items-center justify-center gap-1 rounded-md text-[11px] font-semibold transition-all ${
+                  activePanel === tab.id
+                    ? 'bg-[rgba(255,255,255,0.1)] text-white'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                }`}
               >
                 <tab.icon className="h-3.5 w-3.5" />
                 {tab.label}
@@ -305,10 +306,11 @@ function RoomPage() {
                     <button
                       key={tab.id}
                       onClick={() => setActivePanel(tab.id)}
-                      className={`flex h-8 items-center justify-center gap-1 rounded-md text-[11px] font-semibold transition-all ${activePanel === tab.id
-                        ? 'bg-[rgba(255,255,255,0.1)] text-white'
-                        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                        }`}
+                      className={`flex h-8 items-center justify-center gap-1 rounded-md text-[11px] font-semibold transition-all ${
+                        activePanel === tab.id
+                          ? 'bg-[rgba(255,255,255,0.1)] text-white'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                      }`}
                     >
                       <tab.icon className="h-3.5 w-3.5" />
                       {tab.label}

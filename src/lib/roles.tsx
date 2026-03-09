@@ -36,8 +36,10 @@ export type RoomPermission =
   | 'kick_user'
   | 'clear_chat'
   | 'manage_queue'
+  | 'manage_emojis'
   | 'manage_roles'
   | 'manage_room'
+  | 'view_audit_logs'
   | 'delete_room'
 
 const ROOM_ROLE_ALIASES = {
@@ -72,8 +74,10 @@ const ROOM_ROLE_PERMISSIONS: Record<RoomRoleName, RoomPermission[]> = {
     'skip_self',
     'skip_others',
     'mute_user',
-    'kick_user',
     'clear_chat',
+    'manage_queue',
+    'manage_emojis',
+    'manage_roles',
   ],
   manager: [
     'send_chat',
@@ -86,6 +90,8 @@ const ROOM_ROLE_PERMISSIONS: Record<RoomRoleName, RoomPermission[]> = {
     'ban_user',
     'clear_chat',
     'manage_queue',
+    'manage_emojis',
+    'manage_roles',
   ],
   cohost: [
     'send_chat',
@@ -98,8 +104,10 @@ const ROOM_ROLE_PERMISSIONS: Record<RoomRoleName, RoomPermission[]> = {
     'ban_user',
     'clear_chat',
     'manage_queue',
+    'manage_emojis',
     'manage_roles',
     'manage_room',
+    'view_audit_logs',
   ],
   host: [
     'send_chat',
@@ -112,11 +120,34 @@ const ROOM_ROLE_PERMISSIONS: Record<RoomRoleName, RoomPermission[]> = {
     'ban_user',
     'clear_chat',
     'manage_queue',
+    'manage_emojis',
     'manage_roles',
     'manage_room',
+    'view_audit_logs',
     'delete_room',
   ],
 }
+
+const ROOM_ASSIGNABLE_ROLES: Record<RoomRoleName, RoomRoleName[]> = {
+  guest: [],
+  user: [],
+  resident_dj: [],
+  coordinator: ['user', 'resident_dj'],
+  manager: ['user', 'resident_dj', 'coordinator'],
+  cohost: ['user', 'resident_dj', 'coordinator', 'manager'],
+  host: ['user', 'resident_dj', 'coordinator', 'manager', 'cohost'],
+}
+
+const ROOM_MANAGEMENT_PERMISSIONS: RoomPermission[] = [
+  'mute_user',
+  'kick_user',
+  'ban_user',
+  'manage_queue',
+  'manage_emojis',
+  'manage_roles',
+  'manage_room',
+  'view_audit_logs',
+]
 
 type RoomRoleMeta = {
   label: string
@@ -182,8 +213,8 @@ const ROOM_ROLE_META: Record<RoomRoleName, RoomRoleMeta> = {
     iconClassName: 'text-[#98bb78]',
   },
   coordinator: {
-    label: 'Coordinator',
-    shortLabel: 'Coord',
+    label: 'Moderador',
+    shortLabel: 'Mod',
     icon: Shield,
     pillClassName:
       'border-[rgba(176,107,255,0.26)] bg-[rgba(66,35,105,0.34)] text-[#cdaeff]',
@@ -193,8 +224,8 @@ const ROOM_ROLE_META: Record<RoomRoleName, RoomRoleMeta> = {
     iconClassName: 'text-[#c69dff]',
   },
   manager: {
-    label: 'Manager',
-    shortLabel: 'Manager',
+    label: 'Coordenador',
+    shortLabel: 'Coord',
     icon: Briefcase,
     pillClassName:
       'border-[rgba(176,107,255,0.26)] bg-[rgba(66,35,105,0.34)] text-[#d7baff]',
@@ -270,8 +301,8 @@ const USER_PRESENCE_GROUP_TITLES: Record<UserPresenceGroupName, string> = {
   ambassador: 'Embaixadores',
   host: 'Hosts',
   cohost: 'Co-Hosts',
-  manager: 'Managers',
-  coordinator: 'Coordenadores',
+  manager: 'Coordenadores',
+  coordinator: 'Moderadores',
   resident_dj: 'Resident DJs',
   user: 'Usuários',
   guest: 'Visitantes',
@@ -395,5 +426,24 @@ export function canManageRoomRole(
   return (
     ROOM_ROLE_ORDER.indexOf(normalizeRoomRole(actorRole)) >
     ROOM_ROLE_ORDER.indexOf(normalizeRoomRole(targetRole))
+  )
+}
+
+export function canAssignRoomRole(
+  actorRole: string | null | undefined,
+  targetRole: string | null | undefined,
+) {
+  return ROOM_ASSIGNABLE_ROLES[normalizeRoomRole(actorRole)].includes(
+    normalizeRoomRole(targetRole),
+  )
+}
+
+export function getAssignableRoomRoles(role: string | null | undefined) {
+  return [...ROOM_ASSIGNABLE_ROLES[normalizeRoomRole(role)]]
+}
+
+export function hasRoomManagementAccess(role: string | null | undefined) {
+  return ROOM_MANAGEMENT_PERMISSIONS.some((permission) =>
+    roomRoleHasPermission(role, permission),
   )
 }

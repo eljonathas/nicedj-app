@@ -13,11 +13,13 @@ import {
   Loader2,
   LogOut,
   Radio,
+  Shield,
   ShoppingBag,
   User2,
   Users,
 } from 'lucide-react'
 import { FloatingAppPanel } from '../components/layout/FloatingAppPanel'
+import { hasRoomManagementAccess } from '../lib/roles'
 import { useAuthStore } from '../stores/authStore'
 import { useRoomStore } from '../stores/roomStore'
 import { useUIStore } from '../stores/uiStore'
@@ -41,6 +43,7 @@ const navItems = [
 function RootLayout() {
   const { user, logout, initialized, initialize } = useAuthStore()
   const activeRoom = useRoomStore((s) => s.activeRoom)
+  const roomUsers = useRoomStore((s) => s.users)
   const floatingPanel = useUIStore((s) => s.floatingPanel)
   const openFloatingPanel = useUIStore((s) => s.openFloatingPanel)
   const closeFloatingPanel = useUIStore((s) => s.closeFloatingPanel)
@@ -85,6 +88,8 @@ function RootLayout() {
   const isMarketingPage = location.pathname === '/'
   const useFloatingMenus =
     Boolean(activeRoom) && location.pathname.startsWith('/room/')
+  const currentRoomUser = roomUsers.find((member) => member.id === user?.id)
+  const canManageActiveRoom = hasRoomManagementAccess(currentRoomUser?.role)
 
   if (isAuthPage || isMarketingPage) {
     return (
@@ -155,17 +160,37 @@ function RootLayout() {
                   )
                 })}
 
-                {activeRoom && (
-                  <Link
-                    to="/room/$slug"
-                    params={{ slug: activeRoom.slug }}
-                    title={activeRoom.name}
-                    onClick={() => closeFloatingPanel()}
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(55,210,124,0.26)] bg-[#1c4a3095] text-[var(--accent-hover)]"
-                  >
-                    <Radio className="h-4.5 w-4.5" />
-                  </Link>
-                )}
+                {activeRoom ? (
+                  <>
+                    <div className="my-1 h-px w-8 bg-[rgba(255,255,255,0.1)]" />
+
+                    <Link
+                      to="/room/$slug"
+                      params={{ slug: activeRoom.slug }}
+                      title={activeRoom.name}
+                      onClick={() => closeFloatingPanel()}
+                      className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(55,210,124,0.26)] bg-[#1c4a3095] text-[var(--accent-hover)]"
+                    >
+                      <Radio className="h-4.5 w-4.5" />
+                    </Link>
+
+                    {useFloatingMenus && canManageActiveRoom ? (
+                      <button
+                        type="button"
+                        title="Gestão da sala"
+                        onClick={() => toggleFloatingPanel('room')}
+                        className={`flex h-12 w-12 items-center justify-center rounded-2xl border transition-all ${
+                          floatingPanel?.view === 'room'
+                            ? 'border-[rgba(55,210,124,0.26)] bg-[rgba(11,29,19,0.86)] text-[var(--accent-hover)]'
+                            : 'border-[rgba(255,255,255,0.08)] bg-[rgba(13,18,27,0.66)] text-[var(--text-secondary)] hover:text-white'
+                        }`}
+                        aria-label="Abrir gestão da sala"
+                      >
+                        <Shield className="h-4.5 w-4.5" />
+                      </button>
+                    ) : null}
+                  </>
+                ) : null}
               </nav>
             </div>
 
@@ -270,6 +295,21 @@ function RootLayout() {
                 </Link>
               )
             })}
+
+            {useFloatingMenus && canManageActiveRoom ? (
+              <button
+                type="button"
+                onClick={() => toggleFloatingPanel('room')}
+                className={`flex flex-col items-center gap-0.5 px-3 py-1 text-[10px] font-medium transition-colors ${
+                  floatingPanel?.view === 'room'
+                    ? 'text-[var(--accent)]'
+                    : 'text-[var(--text-muted)]'
+                }`}
+              >
+                <Shield className="h-5 w-5" />
+                Gestão
+              </button>
+            ) : null}
           </nav>
 
           <main className="flex-1 min-w-0 overflow-y-auto pb-16 md:pb-0">

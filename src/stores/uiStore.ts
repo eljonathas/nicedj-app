@@ -7,7 +7,7 @@ interface UIState {
   modalOpen: string | null
   roomSidebarWidth: number
   floatingPanel: {
-    view: 'rooms' | 'playlists' | 'friends' | 'shop' | 'profile'
+    view: 'rooms' | 'playlists' | 'friends' | 'shop' | 'profile' | 'room'
     profileId?: string | null
   } | null
 
@@ -19,7 +19,7 @@ interface UIState {
   openModal: (id: string) => void
   closeModal: () => void
   openFloatingPanel: (
-    view: 'rooms' | 'playlists' | 'friends' | 'shop' | 'profile',
+    view: 'rooms' | 'playlists' | 'friends' | 'shop' | 'profile' | 'room',
     options?: { profileId?: string | null },
   ) => void
   closeFloatingPanel: () => void

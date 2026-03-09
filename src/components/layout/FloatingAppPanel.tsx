@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   LayoutGrid,
   ListMusic,
+  Shield,
   ShoppingBag,
   User2,
   Users,
@@ -15,6 +16,7 @@ import { PlaylistsPage } from '../../routes/playlists'
 import { ProfilePage } from '../../routes/profile.$id'
 import { RoomsPage } from '../../routes/rooms'
 import { ShopPage } from '../../routes/shop'
+import { RoomManagementPanel } from '../room-management/RoomManagementPanel'
 
 const panelMeta = {
   rooms: { title: 'Salas Ativas', icon: LayoutGrid },
@@ -22,6 +24,7 @@ const panelMeta = {
   friends: { title: 'Amigos', icon: Users },
   shop: { title: 'Loja', icon: ShoppingBag },
   profile: { title: 'Perfil', icon: User2 },
+  room: { title: 'Sala', icon: Shield },
 } as const
 
 export function FloatingAppPanel() {
@@ -56,6 +59,8 @@ export function FloatingAppPanel() {
       <FriendsPage />
     ) : panel?.view === 'shop' ? (
       <ShopPage />
+    ) : panel?.view === 'room' ? (
+      <RoomManagementPanel />
     ) : panel?.view === 'profile' && profileId ? (
       <ProfilePage profileId={profileId} />
     ) : null

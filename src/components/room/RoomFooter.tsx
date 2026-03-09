@@ -49,19 +49,21 @@ export function RoomTopBar({
 
   return (
     <div className="flex flex-col gap-3 px-4 py-3 md:h-16 md:flex-row md:items-center md:justify-between md:px-5 md:py-0">
-      <div className="min-w-0 w-100">
-        <p className="truncate text-lg font-semibold tracking-tight text-white">
-          {roomName}
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--text-muted)]">
-          <span className="truncate">Host {hostName}</span>
-          <span className="text-[rgba(255,255,255,0.22)]">•</span>
-          <span>{activeUsersCount} ao vivo</span>
-          {errorMessage ? (
-            <span className="truncate rounded-full border border-[rgba(255,97,88,0.26)] bg-[rgba(68,17,19,0.78)] px-2 py-0.5 text-[10px] font-semibold text-[rgba(255,214,211,0.94)]">
-              {errorMessage}
-            </span>
-          ) : null}
+      <div className="flex items-center gap-3 md:w-100">
+        <div className="min-w-0">
+          <p className="truncate text-lg font-semibold tracking-tight text-white">
+            {roomName}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--text-muted)]">
+            <span className="truncate">Host {hostName}</span>
+            <span className="text-[rgba(255,255,255,0.22)]">•</span>
+            <span>{activeUsersCount} ao vivo</span>
+            {errorMessage ? (
+              <span className="truncate rounded-full border border-[rgba(255,97,88,0.26)] bg-[rgba(68,17,19,0.78)] px-2 py-0.5 text-[10px] font-semibold text-[rgba(255,214,211,0.94)]">
+                {errorMessage}
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
 

@@ -8,6 +8,7 @@ import type { WsClient } from '../lib/ws'
 export function useWsEvents(wsClient: WsClient | null) {
   const {
     addUser,
+    updateUser,
     removeUser,
     setUsers,
     setPlayback,
@@ -45,8 +46,9 @@ export function useWsEvents(wsClient: WsClient | null) {
           slug: payload.roomSlug ?? currentRoom?.slug ?? '',
           description:
             payload.roomDescription ?? currentRoom?.description ?? '',
-          ownerId: currentRoom?.ownerId ?? '',
-          ownerUsername: currentRoom?.ownerUsername ?? 'host',
+          ownerId: payload.ownerId ?? currentRoom?.ownerId ?? '',
+          ownerUsername:
+            payload.ownerUsername ?? currentRoom?.ownerUsername ?? 'host',
           queueLocked: payload.queueLocked ?? currentRoom?.queueLocked ?? false,
         })
 
@@ -93,6 +95,19 @@ export function useWsEvents(wsClient: WsClient | null) {
     unsubs.push(
       wsClient.on('user_left', (payload: any) => {
         removeUser(payload.userId)
+      }),
+    )
+
+    unsubs.push(
+      wsClient.on('user_updated', (payload: any) => {
+        if (!payload?.userId) return
+
+        updateUser(payload.userId, {
+          username: payload.username,
+          avatar: payload.avatar ?? null,
+          role: payload.role ?? 'user',
+          platformRole: payload.platformRole ?? 'none',
+        })
       }),
     )
 
