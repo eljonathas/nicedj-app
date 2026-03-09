@@ -30,8 +30,6 @@ interface Votes {
   mehs: number
   grabs: number
   wootUserIds: string[]
-  grabUserIds: string[]
-  mehUserIds: string[]
 }
 
 interface RoomInfo {
@@ -57,7 +55,9 @@ interface RoomState {
   queue: string[]
   playback: Playback | null
   votes: Votes
-  clientVote: 'woot' | 'grab' | 'meh' | null
+  clientVote: 'woot' | 'meh' | null
+  clientGrabbed: boolean
+  clientGrabPlaylistId: string | null
   isInQueue: boolean
   wootBursts: Record<string, number>
   errorMessage: string | null
@@ -71,7 +71,8 @@ interface RoomState {
   setQueue: (queue: string[]) => void
   setPlayback: (playback: Playback | null) => void
   setVotes: (votes: Votes) => void
-  setClientVote: (vote: 'woot' | 'grab' | 'meh' | null) => void
+  setClientVote: (vote: 'woot' | 'meh' | null) => void
+  setClientGrab: (grabbed: boolean, playlistId: string | null) => void
   updateVote: (type: 'woot' | 'meh' | 'grab', delta: number) => void
   setIsInQueue: (value: boolean) => void
   setErrorMessage: (message: string | null) => void
@@ -103,10 +104,10 @@ const initialState = {
     mehs: 0,
     grabs: 0,
     wootUserIds: [],
-    grabUserIds: [],
-    mehUserIds: [],
   },
-  clientVote: null as 'woot' | 'grab' | 'meh' | null,
+  clientVote: null as 'woot' | 'meh' | null,
+  clientGrabbed: false,
+  clientGrabPlaylistId: null as string | null,
   isInQueue: false,
   wootBursts: {},
   errorMessage: null,
@@ -166,9 +167,17 @@ export const useRoomStore = create<RoomState>((set) => ({
             type === 'woot' ? 'woots' : type === 'meh' ? 'mehs' : 'grabs'
           ] + delta,
       },
-      clientVote: delta > 0 ? type : s.clientVote, // fallback logic in case it updates locally
+      clientVote: delta > 0 && type !== 'grab' ? type : s.clientVote,
+      clientGrabbed: type === 'grab' ? delta > 0 : s.clientGrabbed,
+      clientGrabPlaylistId:
+        type === 'grab' && delta < 0 ? null : s.clientGrabPlaylistId,
     })),
   setClientVote: (vote) => set({ clientVote: vote }),
+  setClientGrab: (grabbed, playlistId) =>
+    set({
+      clientGrabbed: grabbed,
+      clientGrabPlaylistId: grabbed ? playlistId : null,
+    }),
   setIsInQueue: (value) => set({ isInQueue: value }),
   setErrorMessage: (message) => set({ errorMessage: message }),
   setPlayerVolume: (value) => {

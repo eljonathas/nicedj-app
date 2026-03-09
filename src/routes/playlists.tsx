@@ -8,11 +8,12 @@ import {
   Link2,
   ListMusic,
   Loader2,
+  Settings2,
   Plus,
   Search,
   Trash2,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -50,6 +51,8 @@ export function PlaylistsPage() {
     createPlaylist,
     deletePlaylist,
     activatePlaylist,
+    grabUsesActivePlaylistByDefault,
+    setGrabUsesActivePlaylistByDefault,
     addTrack,
     addTrackFromUrl,
     removeTrack,
@@ -72,6 +75,8 @@ export function PlaylistsPage() {
     trackId: string
     placement: 'before' | 'after'
   } | null>(null)
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false)
+  const settingsMenuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -98,6 +103,35 @@ export function PlaylistsPage() {
       setSelectedId(activePlaylistId ?? playlists[0].id)
     }
   }, [activePlaylistId, playlists, selectedId])
+
+  useEffect(() => {
+    if (!isSettingsMenuOpen) {
+      return
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        settingsMenuRef.current &&
+        !settingsMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsSettingsMenuOpen(false)
+      }
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsSettingsMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isSettingsMenuOpen])
 
   const handleCreate = async () => {
     if (!newName.trim()) return
@@ -180,6 +214,7 @@ export function PlaylistsPage() {
   }
 
   const handleDeletePlaylist = async (playlistId: string) => {
+    setIsSettingsMenuOpen(false)
     await deletePlaylist(playlistId)
     setMediaInput('')
     setMediaError(null)
@@ -305,9 +340,77 @@ export function PlaylistsPage() {
     <div className="flex min-h-full flex-1 flex-col overflow-hidden md:flex-row">
       <div className="flex w-full shrink-0 flex-col border-r border-[var(--border-light)] bg-[var(--bg-secondary)] md:w-72">
         <div className="border-b border-[var(--border-light)] p-4">
-          <h2 className="mb-3 text-lg font-bold text-white">
-            Minhas Playlists
-          </h2>
+          <div
+            ref={settingsMenuRef}
+            className="relative mb-3 flex items-center justify-between gap-3"
+          >
+            <h2 className="text-lg font-bold text-white">Minhas Playlists</h2>
+
+            <button
+              type="button"
+              aria-label="Configurações globais de playlists"
+              aria-haspopup="menu"
+              aria-expanded={isSettingsMenuOpen}
+              onClick={() => setIsSettingsMenuOpen((current) => !current)}
+              className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition-colors ${
+                isSettingsMenuOpen
+                  ? 'border-[rgba(255,255,255,0.16)] bg-[rgba(255,255,255,0.08)] text-white'
+                  : 'border-[var(--border-light)] bg-[rgba(255,255,255,0.03)] text-[var(--text-secondary)] hover:text-white'
+              }`}
+            >
+              <Settings2 className="h-4 w-4" />
+            </button>
+
+            {isSettingsMenuOpen ? (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                transition={{ duration: 0.16 }}
+                role="menu"
+                className="absolute top-full left-0 right-0 z-20 mt-2 overflow-hidden rounded-[1.35rem] border border-[var(--border-light)] bg-[rgba(10,14,21,0.96)] shadow-[0_22px_42px_rgba(0,0,0,0.36)] backdrop-blur-xl md:top-0 md:left-full md:right-auto md:mt-0 md:ml-3 md:w-[20rem]"
+              >
+                <div className="border-b border-[rgba(255,255,255,0.06)] px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                    Configurações
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 px-4 py-4">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-white">
+                      Usar playlist ativa como destino padrão do Grab
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={grabUsesActivePlaylistByDefault}
+                    onClick={() =>
+                      setGrabUsesActivePlaylistByDefault(
+                        !grabUsesActivePlaylistByDefault,
+                      )
+                    }
+                    className={`inline-flex h-8 w-14 shrink-0 items-center rounded-full border px-1 transition-colors ${
+                      grabUsesActivePlaylistByDefault
+                        ? 'border-[rgba(55,210,124,0.26)] bg-[rgba(11,29,19,0.82)]'
+                        : 'border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.05)]'
+                    }`}
+                  >
+                    <span
+                      className={`h-6 w-6 rounded-full bg-white shadow-[0_10px_20px_rgba(0,0,0,0.22)] transition-transform ${
+                        grabUsesActivePlaylistByDefault
+                          ? 'translate-x-5'
+                          : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </motion.div>
+            ) : null}
+          </div>
+
           <div className="flex gap-2">
             <Input
               placeholder="Nova playlist..."
@@ -376,7 +479,7 @@ export function PlaylistsPage() {
                   </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
                   {!selected.isActive && (
                     <Button
                       size="sm"

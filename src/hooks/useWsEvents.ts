@@ -15,11 +15,11 @@ export function useWsEvents(wsClient: WsClient | null) {
     setQueue,
     setRoom,
     markWootBurst,
-    clearWootBurst,
     setWootBursts,
     setIsInQueue,
     setErrorMessage,
     setClientVote,
+    setClientGrab,
   } = useRoomStore.getState()
   const { addMessage, clearMessages } = useChatStore.getState()
 
@@ -37,6 +37,7 @@ export function useWsEvents(wsClient: WsClient | null) {
     unsubs.push(
       wsClient.on('room_state_snapshot', (payload: any) => {
         const currentRoom = useRoomStore.getState().room
+        const currentPlayback = useRoomStore.getState().playback
 
         setRoom({
           id: payload.roomId ?? currentRoom?.id ?? '',
@@ -52,17 +53,27 @@ export function useWsEvents(wsClient: WsClient | null) {
         setUsers(payload.users || [])
         syncQueue(payload.queue || [])
         setPlayback(payload.playback ?? null)
+        if ((payload.playback?.trackId ?? null) !== (currentPlayback?.trackId ?? null)) {
+          setClientVote(null)
+          setClientGrab(false, null)
+        }
         setVotes(
           payload.votes ?? {
             woots: 0,
             mehs: 0,
             grabs: 0,
             wootUserIds: [],
-            grabUserIds: [],
-            mehUserIds: [],
           },
         )
-        setClientVote(payload.clientVote ?? null)
+        if ('clientVote' in payload) {
+          setClientVote(payload.clientVote ?? null)
+        }
+        if ('clientGrabbed' in payload || 'clientGrabPlaylistId' in payload) {
+          setClientGrab(
+            Boolean(payload.clientGrabbed),
+            payload.clientGrabPlaylistId ?? null,
+          )
+        }
         setWootBursts(payload.votes?.wootUserIds ?? [])
       }),
     )
@@ -126,6 +137,8 @@ export function useWsEvents(wsClient: WsClient | null) {
     unsubs.push(
       wsClient.on('track_started', (payload: any) => {
         setPlayback(payload ?? null)
+        setClientVote(null)
+        setClientGrab(false, null)
       }),
     )
 
@@ -138,17 +151,24 @@ export function useWsEvents(wsClient: WsClient | null) {
 
     unsubs.push(
       wsClient.on('vote_updated', (payload: any) => {
-        if (payload.userId === useAuthStore.getState().user?.id) {
-          setClientVote(payload.type)
-        }
-
         if (payload.type === 'woot' && typeof payload.userId === 'string') {
           markWootBurst(payload.userId)
+        }
+      }),
+    )
+
+    unsubs.push(
+      wsClient.on('vote', (payload: any) => {
+        if (payload?.type === 'grab') {
+          setClientGrab(
+            Boolean(payload.active),
+            payload.active ? payload.playlistId ?? null : null,
+          )
           return
         }
 
-        if (typeof payload.userId === 'string') {
-          clearWootBurst(payload.userId)
+        if (payload?.type === 'woot' || payload?.type === 'meh') {
+          setClientVote(payload.type)
         }
       }),
     )
@@ -212,6 +232,7 @@ export function useWsEvents(wsClient: WsClient | null) {
     unsubs.push(
       wsClient.on('dj_changed', (payload: any) => {
         setClientVote(null)
+        setClientGrab(false, null)
         if (payload.queue) syncQueue(payload.queue)
       }),
     )

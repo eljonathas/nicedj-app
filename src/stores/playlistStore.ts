@@ -35,13 +35,16 @@ interface PlaylistState {
   playlists: Playlist[]
   activePlaylistId: string | null
   tracks: Track[]
+  loadedTracksPlaylistId: string | null
   loading: boolean
+  grabUsesActivePlaylistByDefault: boolean
 
   fetchPlaylists: () => Promise<void>
   fetchTracks: (playlistId: string) => Promise<void>
   createPlaylist: (name: string) => Promise<string>
   deletePlaylist: (id: string) => Promise<void>
   activatePlaylist: (id: string) => Promise<void>
+  setGrabUsesActivePlaylistByDefault: (value: boolean) => void
   addTrack: (playlistId: string, track: AddTrackPayload) => Promise<void>
   addTrackFromUrl: (playlistId: string, url: string) => Promise<void>
   removeTrack: (playlistId: string, trackId: string) => Promise<void>
@@ -56,11 +59,27 @@ interface TrackMutationResponse {
   } | null
 }
 
+const GRAB_ACTIVE_PLAYLIST_STORAGE_KEY =
+  'nicedj:grab-use-active-playlist-by-default'
+
+function getInitialGrabUsesActivePlaylistByDefault() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return (
+    window.localStorage.getItem(GRAB_ACTIVE_PLAYLIST_STORAGE_KEY) === 'true'
+  )
+}
+
 export const usePlaylistStore = create<PlaylistState>((set, get) => ({
   playlists: [],
   activePlaylistId: null,
   tracks: [],
+  loadedTracksPlaylistId: null,
   loading: false,
+  grabUsesActivePlaylistByDefault:
+    getInitialGrabUsesActivePlaylistByDefault(),
 
   fetchPlaylists: async () => {
     set({ loading: true })
@@ -75,7 +94,7 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
 
   fetchTracks: async (playlistId: string) => {
     const data = await api<Track[]>(`/api/playlists/${playlistId}/tracks`)
-    set({ tracks: data })
+    set({ tracks: data, loadedTracksPlaylistId: playlistId })
   },
 
   createPlaylist: async (name: string) => {
@@ -92,7 +111,12 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
     set((s) => ({
       playlists: s.playlists.filter((p) => p.id !== id),
       activePlaylistId: s.activePlaylistId === id ? null : s.activePlaylistId,
-      tracks: s.activePlaylistId === id ? [] : s.tracks,
+      tracks:
+        s.activePlaylistId === id || s.loadedTracksPlaylistId === id
+          ? []
+          : s.tracks,
+      loadedTracksPlaylistId:
+        s.loadedTracksPlaylistId === id ? null : s.loadedTracksPlaylistId,
     }))
   },
 
@@ -107,6 +131,17 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
     }))
   },
 
+  setGrabUsesActivePlaylistByDefault: (value) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(
+        GRAB_ACTIVE_PLAYLIST_STORAGE_KEY,
+        String(value),
+      )
+    }
+
+    set({ grabUsesActivePlaylistByDefault: value })
+  },
+
   addTrack: async (playlistId: string, track) => {
     const result = await api<TrackMutationResponse>(
       `/api/playlists/${playlistId}/tracks`,
@@ -116,9 +151,10 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
       useAuthStore.getState().applyProgression(result.progression)
     }
     set((s) => ({
-      tracks: [...s.tracks, result.track].sort(
-        (a, b) => a.position - b.position,
-      ),
+      tracks:
+        s.loadedTracksPlaylistId === playlistId
+          ? [...s.tracks, result.track].sort((a, b) => a.position - b.position)
+          : s.tracks,
     }))
   },
 
@@ -131,9 +167,10 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
       useAuthStore.getState().applyProgression(result.progression)
     }
     set((s) => ({
-      tracks: [...s.tracks, result.track].sort(
-        (a, b) => a.position - b.position,
-      ),
+      tracks:
+        s.loadedTracksPlaylistId === playlistId
+          ? [...s.tracks, result.track].sort((a, b) => a.position - b.position)
+          : s.tracks,
     }))
   },
 
@@ -141,7 +178,10 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
     await api(`/api/playlists/${playlistId}/tracks/${trackId}`, {
       method: 'DELETE',
     })
-    await get().fetchTracks(playlistId)
+
+    if (get().loadedTracksPlaylistId === playlistId) {
+      await get().fetchTracks(playlistId)
+    }
   },
 
   reorderTracks: async (playlistId, trackIds) => {
@@ -150,12 +190,15 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
       body: { trackIds },
     })
     set((s) => ({
-      tracks: trackIds
-        .map((trackId, index) => {
-          const track = s.tracks.find((item) => item.id === trackId)
-          return track ? { ...track, position: index } : null
-        })
-        .filter((track): track is Track => track !== null),
+      tracks:
+        s.loadedTracksPlaylistId === playlistId
+          ? trackIds
+              .map((trackId, index) => {
+                const track = s.tracks.find((item) => item.id === trackId)
+                return track ? { ...track, position: index } : null
+              })
+              .filter((track): track is Track => track !== null)
+          : s.tracks,
     }))
   },
 }))

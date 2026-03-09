@@ -1,16 +1,23 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
-  ArrowRight,
+  AlertTriangle,
   Heart,
+  ListMusic,
+  Loader2,
   LogIn,
   LogOut as LogOutIcon,
+  Sparkles,
   ThumbsDown,
   ThumbsUp,
+  X,
 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
+import { api } from '../../lib/api'
 import { useAuthStore } from '../../stores/authStore'
+import { usePlaylistStore } from '../../stores/playlistStore'
 import { useRoomStore } from '../../stores/roomStore'
+import { useUIStore } from '../../stores/uiStore'
 import { Button } from '../ui/Button'
 
 interface VoteBarProps {
@@ -19,6 +26,12 @@ interface VoteBarProps {
 }
 
 type VoteType = 'woot' | 'grab' | 'meh'
+type PlaylistTrackRecord = {
+  id: string
+  source: 'youtube' | 'soundcloud'
+  sourceId: string
+}
+const DUPLICATE_GRAB_MESSAGE = 'Essa música já está na playlist escolhida.'
 
 type VoteAppearance = {
   label: string
@@ -74,18 +87,92 @@ const VOTE_APPEARANCE: Record<VoteType, VoteAppearance> = {
 export function VoteBar() {
   const {
     handleVote,
+    clientGrabbed,
+    clientGrabPlaylistId,
     clientVote,
     votes,
   } = useVoteBarState()
+  const playback = useRoomStore((s) => s.playback)
+  const openFloatingPanel = useUIStore((s) => s.openFloatingPanel)
+  const {
+    playlists,
+    activePlaylistId,
+    loading: playlistsLoading,
+    fetchPlaylists,
+    addTrack,
+    removeTrack,
+    grabUsesActivePlaylistByDefault,
+  } = usePlaylistStore()
   const [recentVote, setRecentVote] = useState<{
     type: VoteType
     nonce: number
   } | null>(null)
+  const [isGrabModalOpen, setIsGrabModalOpen] = useState(false)
+  const [selectedGrabPlaylistId, setSelectedGrabPlaylistId] = useState<
+    string | null
+  >(null)
+  const [isSavingGrab, setIsSavingGrab] = useState(false)
+  const [isRemovingGrab, setIsRemovingGrab] = useState(false)
+  const [grabError, setGrabError] = useState<string | null>(null)
+  const [isGrabDuplicateSelection, setIsGrabDuplicateSelection] = useState(false)
+  const [isValidatingGrabSelection, setIsValidatingGrabSelection] = useState(false)
+  const [isGrabRemovalDialogOpen, setIsGrabRemovalDialogOpen] = useState(false)
   const resetRecentVoteTimerRef = useRef<number | null>(null)
+  const grabbedPlaylistName =
+    playlists.find((playlist) => playlist.id === clientGrabPlaylistId)?.name ??
+    null
 
-  const triggerVote = (type: VoteType) => {
-    handleVote(type)
+  useEffect(() => {
+    if (!isGrabModalOpen || !selectedGrabPlaylistId || !playback) {
+      setIsGrabDuplicateSelection(false)
+      setIsValidatingGrabSelection(false)
+      return
+    }
 
+    let cancelled = false
+    setIsValidatingGrabSelection(true)
+    setIsGrabDuplicateSelection(false)
+    setGrabError((current) =>
+      current === DUPLICATE_GRAB_MESSAGE ? null : current,
+    )
+
+    void findCurrentTrackInPlaylist(
+      selectedGrabPlaylistId,
+      playback.source,
+      playback.sourceId,
+    )
+      .then((existingTrack) => {
+        if (cancelled) {
+          return
+        }
+
+        const isDuplicate = Boolean(existingTrack)
+        setIsGrabDuplicateSelection(isDuplicate)
+
+        if (isDuplicate) {
+          setGrabError(DUPLICATE_GRAB_MESSAGE)
+        } else {
+          setGrabError((current) =>
+            current === DUPLICATE_GRAB_MESSAGE ? null : current,
+          )
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsValidatingGrabSelection(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    isGrabModalOpen,
+    playback,
+    selectedGrabPlaylistId,
+  ])
+
+  const markRecentVote = (type: VoteType) => {
     setRecentVote({
       type,
       nonce: Date.now(),
@@ -100,41 +187,239 @@ export function VoteBar() {
     }, 900)
   }
 
+  const saveCurrentTrackToPlaylist = async (
+    playlistId: string,
+    options?: { openModalOnError?: boolean },
+  ) => {
+    if (!playback) {
+      return
+    }
+
+    setGrabError(null)
+    setIsSavingGrab(true)
+
+    try {
+      const existingTrack = await findCurrentTrackInPlaylist(
+        playlistId,
+        playback.source,
+        playback.sourceId,
+      )
+      if (existingTrack) {
+        setIsGrabDuplicateSelection(true)
+        setGrabError(DUPLICATE_GRAB_MESSAGE)
+
+        if (options?.openModalOnError) {
+          setIsGrabModalOpen(true)
+        }
+        return
+      }
+
+      await addTrack(playlistId, {
+        sourceId: playback.sourceId,
+        source: playback.source,
+        title: playback.title,
+        artist: playback.artist,
+        durationMs: playback.durationMs,
+        thumbnailUrl: playback.thumbnailUrl,
+      })
+
+      handleVote('grab', { active: true, playlistId })
+      markRecentVote('grab')
+      setIsGrabModalOpen(false)
+      setIsGrabDuplicateSelection(false)
+    } catch (error: any) {
+      setGrabError(error.message || 'Não foi possível salvar a faixa.')
+
+      if (options?.openModalOnError) {
+        setIsGrabModalOpen(true)
+      }
+    } finally {
+      setIsSavingGrab(false)
+    }
+  }
+
+  const removeCurrentTrackFromGrab = async () => {
+    if (!playback) {
+      return
+    }
+
+    setGrabError(null)
+    setIsRemovingGrab(true)
+
+    try {
+      if (clientGrabPlaylistId) {
+        const existingTrack = await findCurrentTrackInPlaylist(
+          clientGrabPlaylistId,
+          playback.source,
+          playback.sourceId,
+        )
+
+        if (existingTrack) {
+          await removeTrack(clientGrabPlaylistId, existingTrack.id)
+        }
+      }
+
+      handleVote('grab', { active: false })
+      markRecentVote('grab')
+      setIsGrabRemovalDialogOpen(false)
+    } catch (error: any) {
+      setGrabError(error.message || 'Não foi possível remover a faixa da playlist.')
+    } finally {
+      setIsRemovingGrab(false)
+    }
+  }
+
+  const triggerGrabFlow = async () => {
+    if (!playback) {
+      return
+    }
+
+    setGrabError(null)
+    setIsGrabDuplicateSelection(false)
+
+    if (clientGrabbed) {
+      setIsGrabRemovalDialogOpen(true)
+      return
+    }
+
+    if (playlists.length === 0) {
+      await fetchPlaylists()
+    }
+
+    const {
+      playlists: latestPlaylists,
+      activePlaylistId: latestActivePlaylistId,
+      grabUsesActivePlaylistByDefault: useActiveAsDefault,
+    } = usePlaylistStore.getState()
+
+    if (latestPlaylists.length === 0) {
+      setSelectedGrabPlaylistId(null)
+      setIsGrabModalOpen(true)
+      return
+    }
+
+    const initialPlaylistId =
+      latestActivePlaylistId ?? latestPlaylists[0].id
+
+    setSelectedGrabPlaylistId(initialPlaylistId)
+
+    if (useActiveAsDefault && latestActivePlaylistId) {
+      await saveCurrentTrackToPlaylist(latestActivePlaylistId, {
+        openModalOnError: true,
+      })
+      return
+    }
+
+    setIsGrabModalOpen(true)
+  }
+
+  const triggerVote = (type: VoteType) => {
+    if (type === 'grab') {
+      void triggerGrabFlow()
+      return
+    }
+
+    handleVote(type)
+    markRecentVote(type)
+  }
+
   return (
-    <div className="rounded-[1.45rem] bg-[rgba(8,13,19,0.78)] p-1.5 shadow-[0_18px_34px_rgba(0,0,0,0.34)] backdrop-blur-[18px]">
-      <div className="flex items-stretch gap-1.5">
-        <VoteButton
-          type="woot"
-          value={votes.woots}
-          compact
-          isSelected={clientVote === 'woot'}
-          interactionNonce={
-            recentVote?.type === 'woot' ? recentVote.nonce : null
-          }
-          onClick={() => triggerVote('woot')}
-        />
-        <VoteButton
-          type="grab"
-          value={votes.grabs}
-          compact
-          isSelected={clientVote === 'grab'}
-          interactionNonce={
-            recentVote?.type === 'grab' ? recentVote.nonce : null
-          }
-          onClick={() => triggerVote('grab')}
-        />
-        <VoteButton
-          type="meh"
-          value={votes.mehs}
-          compact
-          isSelected={clientVote === 'meh'}
-          interactionNonce={
-            recentVote?.type === 'meh' ? recentVote.nonce : null
-          }
-          onClick={() => triggerVote('meh')}
-        />
+    <>
+      <div className="rounded-[1.45rem] bg-[rgba(8,13,19,0.78)] p-1.5 shadow-[0_18px_34px_rgba(0,0,0,0.34)] backdrop-blur-[18px]">
+        <div className="flex items-stretch gap-1.5">
+          <VoteButton
+            type="woot"
+            value={votes.woots}
+            compact
+            isSelected={clientVote === 'woot'}
+            interactionNonce={
+              recentVote?.type === 'woot' ? recentVote.nonce : null
+            }
+            onClick={() => triggerVote('woot')}
+          />
+          <VoteButton
+            type="grab"
+            value={votes.grabs}
+            compact
+            isSelected={clientGrabbed}
+            interactionNonce={
+              recentVote?.type === 'grab' ? recentVote.nonce : null
+            }
+            onClick={() => triggerVote('grab')}
+          />
+          <VoteButton
+            type="meh"
+            value={votes.mehs}
+            compact
+            isSelected={clientVote === 'meh'}
+            interactionNonce={
+              recentVote?.type === 'meh' ? recentVote.nonce : null
+            }
+            onClick={() => triggerVote('meh')}
+          />
+        </div>
       </div>
-    </div>
+
+      <GrabPlaylistModal
+        isOpen={isGrabModalOpen}
+        playlists={playlists}
+        activePlaylistId={activePlaylistId}
+        selectedPlaylistId={selectedGrabPlaylistId}
+        trackTitle={playback?.title ?? null}
+        trackArtist={playback?.artist ?? null}
+        isLoading={playlistsLoading || isSavingGrab}
+        error={grabError}
+        onClose={() => {
+          if (isSavingGrab) {
+            return
+          }
+
+          setIsGrabModalOpen(false)
+          setGrabError(null)
+          setIsGrabDuplicateSelection(false)
+        }}
+        onOpenPlaylists={() => {
+          setIsGrabModalOpen(false)
+          setGrabError(null)
+          setIsGrabDuplicateSelection(false)
+          openFloatingPanel('playlists')
+        }}
+        onSelectPlaylist={(playlistId) => {
+          setSelectedGrabPlaylistId(playlistId)
+          setGrabError(null)
+          setIsGrabDuplicateSelection(false)
+        }}
+        isConfirmDisabled={isGrabDuplicateSelection || isValidatingGrabSelection}
+        onConfirm={() => {
+          if (!selectedGrabPlaylistId) {
+            setGrabError('Selecione uma playlist para salvar a faixa.')
+            return
+          }
+
+          void saveCurrentTrackToPlaylist(selectedGrabPlaylistId)
+        }}
+      />
+
+      <GrabRemovalDialog
+        isOpen={isGrabRemovalDialogOpen}
+        playlistName={grabbedPlaylistName}
+        trackTitle={playback?.title ?? null}
+        trackArtist={playback?.artist ?? null}
+        isLoading={isRemovingGrab}
+        error={grabError}
+        onClose={() => {
+          if (isRemovingGrab) {
+            return
+          }
+
+          setIsGrabRemovalDialogOpen(false)
+          setGrabError(null)
+        }}
+        onConfirm={() => {
+          void removeCurrentTrackFromGrab()
+        }}
+      />
+    </>
   )
 }
 
@@ -184,14 +469,25 @@ function useVoteBarState() {
   const queue = useRoomStore((s) => s.queue)
   const playbackDjId = useRoomStore((s) => s.playback?.djId)
   const clientVote = useRoomStore((s) => s.clientVote)
+  const clientGrabbed = useRoomStore((s) => s.clientGrabbed)
+  const clientGrabPlaylistId = useRoomStore((s) => s.clientGrabPlaylistId)
   const user = useAuthStore((s) => s.user)
   const wsClient = useAuthStore((s) => s.wsClient)
 
   const isInQueue = Boolean(user?.id && queue.includes(user.id))
   const isCurrentDJ = playbackDjId === user?.id
 
-  const handleVote = (type: VoteType) => {
-    wsClient?.send('vote', { type })
+  const handleVote = (
+    type: VoteType,
+    options?: { active?: boolean; playlistId?: string | null },
+  ) => {
+    wsClient?.send('vote', {
+      type,
+      ...(typeof options?.active === 'boolean' ? { active: options.active } : {}),
+      ...(options?.playlistId !== undefined
+        ? { playlistId: options.playlistId }
+        : {}),
+    })
   }
 
   const handleToggleQueue = () => {
@@ -209,9 +505,307 @@ function useVoteBarState() {
     isCurrentDJ,
     queueLength: queue.length,
     clientVote,
+    clientGrabbed,
+    clientGrabPlaylistId,
     handleToggleQueue,
     handleVote,
   }
+}
+
+async function findCurrentTrackInPlaylist(
+  playlistId: string,
+  source: 'youtube' | 'soundcloud',
+  sourceId: string,
+) {
+  const tracks = await api<PlaylistTrackRecord[]>(`/api/playlists/${playlistId}/tracks`)
+  return (
+    tracks.find(
+      (track) => track.source === source && track.sourceId === sourceId,
+    ) ?? null
+  )
+}
+
+function GrabPlaylistModal({
+  isOpen,
+  playlists,
+  activePlaylistId,
+  selectedPlaylistId,
+  trackTitle,
+  trackArtist,
+  isLoading,
+  error,
+  onClose,
+  onOpenPlaylists,
+  onSelectPlaylist,
+  isConfirmDisabled,
+  onConfirm,
+}: {
+  isOpen: boolean
+  playlists: Array<{ id: string; name: string; isActive: boolean }>
+  activePlaylistId: string | null
+  selectedPlaylistId: string | null
+  trackTitle: string | null
+  trackArtist: string | null
+  isLoading: boolean
+  error: string | null
+  onClose: () => void
+  onOpenPlaylists: () => void
+  onSelectPlaylist: (playlistId: string) => void
+  isConfirmDisabled?: boolean
+  onConfirm: () => void
+}) {
+  return (
+    <AnimatePresence>
+      {isOpen ? (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+          />
+
+          <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 22, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 18, scale: 0.97 }}
+              transition={{ duration: 0.2 }}
+              className="pointer-events-auto w-full max-w-lg rounded-[1.8rem] border border-[var(--border-light)] bg-[linear-gradient(165deg,rgba(18,25,36,0.95),rgba(11,15,23,0.97))] p-6 shadow-[0_30px_70px_rgba(0,0,0,0.55)]"
+            >
+              <div className="flex items-start justify-between gap-4 border-b border-[var(--border-light)] pb-5">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                    Grab
+                  </p>
+                  <h2 className="section-title mt-2 flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+                    <Sparkles className="h-5 w-5 text-[var(--accent-hover)]" />
+                    Escolha a playlist
+                  </h2>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                    Salve a faixa atual na playlist certa antes de confirmar o
+                    grab.
+                  </p>
+                </div>
+
+                <button
+                  onClick={onClose}
+                  className="h-9 w-9 rounded-lg border border-[var(--border-light)] bg-[rgba(23,30,42,0.8)] text-[var(--text-secondary)] transition-colors hover:border-white/30 hover:text-white"
+                  aria-label="Fechar modal"
+                >
+                  <X className="mx-auto h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <div className="rounded-[1.25rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                    Tocando agora
+                  </p>
+                  <p className="mt-1 truncate text-[14px] font-semibold text-white">
+                    {trackTitle ?? 'Nenhuma faixa tocando agora'}
+                  </p>
+                  <p className="truncate text-[12px] text-[var(--text-secondary)]">
+                    {trackArtist ?? 'Aguardando a próxima entrada'}
+                  </p>
+                </div>
+
+                {playlists.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {playlists.map((playlist) => {
+                      const isSelected = playlist.id === selectedPlaylistId
+                      const isActive = playlist.id === activePlaylistId
+
+                      return (
+                        <button
+                          key={playlist.id}
+                          type="button"
+                          onClick={() => onSelectPlaylist(playlist.id)}
+                          className={`flex w-full items-center justify-between gap-3 rounded-[1rem] px-3 py-2.5 text-left transition-colors ${
+                            isSelected
+                              ? 'bg-[rgba(53,35,14,0.62)] text-white ring-1 ring-[rgba(255,181,71,0.34)]'
+                              : 'bg-[rgba(255,255,255,0.025)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.05)] hover:text-white'
+                          }`}
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.9rem] bg-[rgba(255,255,255,0.05)] text-[var(--text-muted)]">
+                              <ListMusic className="h-3.5 w-3.5" />
+                            </div>
+                            <p className="truncate text-[13px] font-semibold">
+                              {playlist.name}
+                            </p>
+                          </div>
+
+                          {isActive ? (
+                            <span className="rounded-full border border-[rgba(55,210,124,0.18)] bg-[rgba(11,29,19,0.62)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--accent-hover)]">
+                              Ativa
+                            </span>
+                          ) : null}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-[1.25rem] border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-4 py-5 text-center">
+                    <p className="text-[13px] font-semibold text-white">
+                      Você ainda não tem playlists
+                    </p>
+                    <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-secondary)]">
+                      Crie uma playlist para usar o grab como atalho de salvar
+                      músicas durante a sessão.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="mt-4"
+                      onClick={onOpenPlaylists}
+                    >
+                      Abrir playlists
+                    </Button>
+                  </div>
+                )}
+
+                {error ? (
+                  <div className="rounded-[1rem] border border-[rgba(255,97,88,0.28)] bg-[rgba(68,17,19,0.6)] px-4 py-3 text-sm font-medium text-[rgba(255,214,211,0.94)]">
+                    {error}
+                  </div>
+                ) : null}
+
+                <div className="flex gap-3 pt-1">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={onClose}
+                    disabled={isLoading}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    className="flex-1"
+                    onClick={onConfirm}
+                    disabled={
+                      playlists.length === 0 ||
+                      !selectedPlaylistId ||
+                      isConfirmDisabled
+                    }
+                    isLoading={isLoading}
+                  >
+                    Confirmar grab
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </>
+      ) : null}
+    </AnimatePresence>
+  )
+}
+
+function GrabRemovalDialog({
+  isOpen,
+  playlistName,
+  trackTitle,
+  trackArtist,
+  isLoading,
+  error,
+  onClose,
+  onConfirm,
+}: {
+  isOpen: boolean
+  playlistName: string | null
+  trackTitle: string | null
+  trackArtist: string | null
+  isLoading: boolean
+  error: string | null
+  onClose: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <AnimatePresence>
+      {isOpen ? (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+          />
+
+          <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 18, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 14, scale: 0.97 }}
+              transition={{ duration: 0.18 }}
+              className="pointer-events-auto w-full max-w-md rounded-[1.8rem] border border-[var(--border-light)] bg-[linear-gradient(165deg,rgba(18,25,36,0.95),rgba(11,15,23,0.97))] p-6 shadow-[0_30px_70px_rgba(0,0,0,0.55)]"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(255,181,71,0.22)] bg-[rgba(53,35,14,0.72)] text-[#ffd488]">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                    Grab
+                  </p>
+                  <h2 className="mt-2 text-xl font-extrabold tracking-tight text-white">
+                    Remover da playlist
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+                    Desativar o grab vai remover esta faixa
+                    {playlistName ? ` da playlist ${playlistName}.` : ' da playlist usada no grab.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-[1.25rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                  Faixa
+                </p>
+                <p className="mt-1 truncate text-[14px] font-semibold text-white">
+                  {trackTitle ?? 'Nenhuma faixa tocando agora'}
+                </p>
+                <p className="truncate text-[12px] text-[var(--text-secondary)]">
+                  {trackArtist ?? 'Aguardando a próxima entrada'}
+                </p>
+              </div>
+
+              {error ? (
+                <div className="mt-4 rounded-[1rem] border border-[rgba(255,97,88,0.28)] bg-[rgba(68,17,19,0.6)] px-4 py-3 text-sm font-medium text-[rgba(255,214,211,0.94)]">
+                  {error}
+                </div>
+              ) : null}
+
+              <div className="mt-5 flex gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={onClose}
+                  disabled={isLoading}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  className="flex-1"
+                  onClick={onConfirm}
+                  isLoading={isLoading}
+                >
+                  Remover grab
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        </>
+      ) : null}
+    </AnimatePresence>
+  )
 }
 
 function VoteButton({
