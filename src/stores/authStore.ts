@@ -98,7 +98,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         accessToken: string
         refreshToken: string
         user: User
-      }>('/api/auth/login', { method: 'POST', body: { email, password } })
+      }>('/api/auth/login', {
+        method: 'POST',
+        body: { email, password },
+        skipAuth: true,
+      })
       localStorage.setItem('nicedj_token', result.accessToken)
 
       const wsClient = new WsClient(result.accessToken)
@@ -122,6 +126,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await api('/api/auth/register', {
         method: 'POST',
         body: { username, email, password },
+        skipAuth: true,
       })
       await get().login(email, password)
     } catch (err: any) {

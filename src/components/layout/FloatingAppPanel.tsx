@@ -27,10 +27,31 @@ const panelMeta = {
   room: { title: 'Sala', icon: Shield },
 } as const
 
+export function getFloatingPanelBounds({
+  isMobile,
+  isRoomCompactLayout,
+  roomSidebarWidth,
+}: {
+  isMobile: boolean
+  isRoomCompactLayout: boolean
+  roomSidebarWidth: number
+}) {
+  if (isRoomCompactLayout) {
+    return isMobile
+      ? { top: 57, right: 0, bottom: 57, left: 0 }
+      : { top: 0, right: 0, bottom: 0, left: 82 }
+  }
+
+  return isMobile
+    ? { top: 57, right: 0, bottom: 57, left: 0 }
+    : { top: 0, right: roomSidebarWidth, bottom: 0, left: 82 }
+}
+
 export function FloatingAppPanel() {
   const panel = useUIStore((s) => s.floatingPanel)
   const closeFloatingPanel = useUIStore((s) => s.closeFloatingPanel)
   const isMobile = useUIStore((s) => s.isMobile)
+  const isRoomCompactLayout = useUIStore((s) => s.isRoomCompactLayout)
   const roomSidebarWidth = useUIStore((s) => s.roomSidebarWidth)
   const user = useAuthStore((s) => s.user)
 
@@ -66,9 +87,11 @@ export function FloatingAppPanel() {
     ) : null
 
   const meta = panel ? panelMeta[panel.view] : null
-  const panelBounds = isMobile
-    ? { top: 57, right: 0, bottom: 57, left: 0 }
-    : { top: 0, right: roomSidebarWidth, bottom: 0, left: 82 }
+  const panelBounds = getFloatingPanelBounds({
+    isMobile,
+    isRoomCompactLayout,
+    roomSidebarWidth,
+  })
 
   return (
     <AnimatePresence>

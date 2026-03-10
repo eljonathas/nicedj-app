@@ -16,14 +16,21 @@ import {
   buildCrowdLayout,
   resolveAudienceSpriteSheet,
   resolveDjSpriteRenderMetrics,
+  resolveHeroBackgroundZoom,
   resolveStageLayoutWidth,
   resolveStageViewportMetrics,
 } from './stageScene'
-import type { PositionedStageUser, StageUser } from './stageScene'
+import type {
+  PositionedStageUser,
+  StageLayoutMode,
+  StageUser,
+} from './stageScene'
 
 interface StageProps {
   users: StageUser[]
   djId?: string
+  layout?: StageLayoutMode
+  maxCrowdUsers?: number
 }
 
 type ViewportSize = {
@@ -49,7 +56,12 @@ const defaultViewport: ViewportSize = {
   height: LEGACY_STAGE_SCENE_HEIGHT,
 }
 
-export function Stage({ users, djId }: StageProps) {
+export function Stage({
+  users,
+  djId,
+  layout = 'default',
+  maxCrowdUsers,
+}: StageProps) {
   const currentUserId = useAuthStore((state) => state.user?.id ?? null)
   const wootBursts = useRoomStore((state) => state.wootBursts)
   const stageRef = useRef<HTMLElement | null>(null)
@@ -96,50 +108,100 @@ export function Stage({ users, djId }: StageProps) {
   )
 
   const crowdUsers = useMemo(() => {
-    const maxCrowd = dj ? MAX_STAGE_CHARACTERS - 1 : MAX_STAGE_CHARACTERS
+    if (layout === 'hero' && viewport.width < 768) {
+      return []
+    }
+
+    const layoutMaxCrowd = layout === 'hero' ? 12 : MAX_STAGE_CHARACTERS
+    const maxCrowd = maxCrowdUsers ?? layoutMaxCrowd
     return users.filter((user) => user.id !== djId).slice(0, maxCrowd)
-  }, [dj, djId, users])
-
-  const stageLayoutWidth = useMemo(
-    () => resolveStageLayoutWidth(viewport.width),
-    [viewport.width],
-  )
-
-  const crowdLayout = useMemo(
-    () => buildCrowdLayout(crowdUsers, currentUserId, stageLayoutWidth),
-    [crowdUsers, currentUserId, stageLayoutWidth],
-  )
+  }, [djId, layout, maxCrowdUsers, users, viewport.width])
 
   const sceneMetrics = useMemo(
-    () => resolveStageViewportMetrics(viewport.width, viewport.height),
-    [viewport.height, viewport.width],
+    () => resolveStageViewportMetrics(viewport.width, viewport.height, layout),
+    [layout, viewport.height, viewport.width],
+  )
+  const isMobileHero = layout === 'hero' && viewport.width < 768
+
+  const stageLayoutWidth = useMemo(
+    () =>
+      layout === 'default'
+        ? sceneMetrics.audienceWidth
+        : resolveStageLayoutWidth(viewport.width, layout),
+    [layout, sceneMetrics.audienceWidth, viewport.width],
+  )
+  const heroBackgroundScale =
+    layout === 'hero' && viewport.width > 0
+      ? `${Math.round(
+          (isMobileHero
+            ? resolveHeroBackgroundZoom(viewport.width)
+            : stageLayoutWidth / viewport.width) * 100,
+        )}% auto`
+      : undefined
+  const backgroundSize = heroBackgroundScale
+  const backgroundPosition =
+    layout === 'hero'
+      ? isMobileHero
+        ? '50% 100%'
+        : 'center 64%'
+      : 'center bottom'
+
+  const crowdLayout = useMemo(
+    () => buildCrowdLayout(crowdUsers, currentUserId, stageLayoutWidth, layout),
+    [crowdUsers, currentUserId, layout, stageLayoutWidth],
   )
 
   return (
     <section
       ref={stageRef}
-      className="relative h-full min-h-0 w-full overflow-hidden border-t border-[rgba(255,255,255,0.08)] bg-[#090d14]"
+      className={`relative h-full min-h-0 w-full overflow-hidden bg-[#090d14] ${layout === 'hero'
+          ? ''
+          : 'border-t border-[rgba(255,255,255,0.08)]'
+        }`}
     >
       <div
         className="absolute inset-0 bg-cover bg-no-repeat"
         style={{
           backgroundImage: 'url(/stages/default.b9f5c461.jpg)',
-          backgroundPosition: 'center bottom',
+          backgroundSize,
+          backgroundPosition,
         }}
       />
 
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(7,10,16,0.62)_0%,rgba(8,12,18,0.38)_35%,rgba(8,11,17,0.72)_100%)]" />
-      <div className="pointer-events-none absolute inset-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),inset_0_-100px_120px_rgba(0,0,0,0.64)]" />
+      <div
+        className={`pointer-events-none absolute inset-0 ${layout === 'hero'
+            ? 'bg-[linear-gradient(180deg,rgba(7,10,16,0.46)_0%,rgba(8,12,18,0.18)_34%,rgba(8,11,17,0.68)_100%)]'
+            : 'bg-[linear-gradient(180deg,rgba(7,10,16,0.62)_0%,rgba(8,12,18,0.38)_35%,rgba(8,11,17,0.72)_100%)]'
+          }`}
+      />
+      <div
+        className={`pointer-events-none absolute inset-0 ${layout === 'hero'
+            ? 'shadow-[inset_0_1px_0_rgba(255,255,255,0.05),inset_0_-80px_120px_rgba(0,0,0,0.68)]'
+            : 'shadow-[inset_0_1px_0_rgba(255,255,255,0.08),inset_0_-100px_120px_rgba(0,0,0,0.64)]'
+          }`}
+      />
 
       <div
-        className="pointer-events-none absolute inset-x-0 z-20"
-        style={{
-          bottom: `${sceneMetrics.djBottom}px`,
-          height: `${sceneMetrics.djCanvasHeight}px`,
-        }}
+        className="pointer-events-none absolute z-20"
+        style={
+          layout === 'default'
+            ? {
+                left: `${sceneMetrics.djCenterX - sceneMetrics.djCanvasWidth / 2}px`,
+                bottom: `${sceneMetrics.djBottom}px`,
+                width: `${sceneMetrics.djCanvasWidth}px`,
+                height: `${sceneMetrics.djCanvasHeight}px`,
+              }
+            : {
+                left: '50%',
+                bottom: `${sceneMetrics.djBottom}px`,
+                width: `${sceneMetrics.djCanvasWidth}px`,
+                height: `${sceneMetrics.djCanvasHeight}px`,
+                transform: 'translateX(-50%)',
+              }
+        }
       >
         <div
-          className="relative mx-auto"
+          className="relative h-full w-full"
           style={{
             width: `${sceneMetrics.djCanvasWidth}px`,
             height: `${sceneMetrics.djCanvasHeight}px`,
@@ -158,16 +220,25 @@ export function Stage({ users, djId }: StageProps) {
       </div>
 
       <div
-        className="pointer-events-none absolute inset-x-0 z-30"
-        style={{
-          bottom: `${sceneMetrics.audienceBottom}px`,
-          height: `${sceneMetrics.audienceHeight}px`,
-        }}
+        className="pointer-events-none absolute z-30"
+        style={
+          layout === 'default'
+            ? {
+                left: `${sceneMetrics.audienceLeft}px`,
+                bottom: `${sceneMetrics.audienceBottom}px`,
+                width: `${sceneMetrics.audienceWidth}px`,
+                height: `${sceneMetrics.audienceHeight}px`,
+              }
+            : {
+                left: '50%',
+                bottom: `${sceneMetrics.audienceBottom}px`,
+                width: `${stageLayoutWidth}px`,
+                height: `${sceneMetrics.audienceHeight}px`,
+                transform: 'translateX(-50%)',
+              }
+        }
       >
-        <div
-          className="relative mx-auto h-full overflow-visible"
-          style={{ width: `${stageLayoutWidth}px` }}
-        >
+        <div className="relative h-full overflow-visible">
           {crowdLayout.map((entry) => (
             <AudienceCharacter
               key={entry.user.id}

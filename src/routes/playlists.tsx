@@ -7,11 +7,11 @@ import {
   GripVertical,
   Link2,
   ListMusic,
-  Loader2,
-  Settings2,
   Plus,
   Search,
+  Settings2,
   Trash2,
+  X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
@@ -76,7 +76,22 @@ export function PlaylistsPage() {
     placement: 'before' | 'after'
   } | null>(null)
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false)
+  const [hasSearchedMedia, setHasSearchedMedia] = useState(false)
   const settingsMenuRef = useRef<HTMLDivElement | null>(null)
+  const searchSurfaceRef = useRef<HTMLDivElement | null>(null)
+  const mediaInputTrimmed = mediaInput.trim()
+  const mediaInputIsUrl = looksLikeMediaUrl(mediaInputTrimmed)
+  const mediaBusy = searchLoading || submittingMedia
+  const trackSourceKeys = useMemo(
+    () => new Set(tracks.map((track) => `${track.source}:${track.sourceId}`)),
+    [tracks],
+  )
+  const searchPanelOpen =
+    !mediaInputIsUrl &&
+    mediaInputTrimmed.length > 0 &&
+    (searchLoading ||
+      searchResults.length > 0 ||
+      (hasSearchedMedia && !mediaError))
 
   useEffect(() => {
     if (user) {
@@ -133,6 +148,37 @@ export function PlaylistsPage() {
     }
   }, [isSettingsMenuOpen])
 
+  useEffect(() => {
+    if (!searchPanelOpen) {
+      return
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        searchSurfaceRef.current &&
+        !searchSurfaceRef.current.contains(event.target as Node)
+      ) {
+        setSearchResults([])
+        setHasSearchedMedia(false)
+      }
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSearchResults([])
+        setHasSearchedMedia(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [searchPanelOpen])
+
   const handleCreate = async () => {
     if (!newName.trim()) return
     const playlistId = await createPlaylist(newName.trim())
@@ -164,7 +210,7 @@ export function PlaylistsPage() {
   }
 
   const handleMediaSubmit = async () => {
-    const value = mediaInput.trim()
+    const value = mediaInputTrimmed
 
     if (!value) return
     if (!selectedId) {
@@ -182,6 +228,7 @@ export function PlaylistsPage() {
         await addTrackFromUrl(selectedId, value)
         setMediaInput('')
         setSearchResults([])
+        setHasSearchedMedia(false)
         setMediaNotice('Link adicionado à playlist.')
       } catch (error: any) {
         setMediaError(error.message || 'Não foi possível adicionar o link.')
@@ -205,8 +252,10 @@ export function PlaylistsPage() {
         `/api/media/search?${params.toString()}`,
       )
       setSearchResults(data)
+      setHasSearchedMedia(true)
     } catch (error: any) {
       setSearchResults([])
+      setHasSearchedMedia(false)
       setMediaError(error.message || 'Não foi possível buscar vídeos.')
     } finally {
       setSearchLoading(false)
@@ -219,6 +268,7 @@ export function PlaylistsPage() {
     setMediaInput('')
     setMediaError(null)
     setSearchResults([])
+    setHasSearchedMedia(false)
   }
 
   const commitTrackOrder = async (nextTrackIds: string[]) => {
@@ -317,6 +367,8 @@ export function PlaylistsPage() {
     handleTrackDragEnd()
   }
 
+  const selected = playlists.find((playlist) => playlist.id === selectedId)
+
   if (!user) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -326,15 +378,6 @@ export function PlaylistsPage() {
       </div>
     )
   }
-
-  const selected = playlists.find((playlist) => playlist.id === selectedId)
-  const mediaInputTrimmed = mediaInput.trim()
-  const mediaInputIsUrl = looksLikeMediaUrl(mediaInputTrimmed)
-  const mediaBusy = searchLoading || submittingMedia
-  const trackSourceKeys = useMemo(
-    () => new Set(tracks.map((track) => `${track.source}:${track.sourceId}`)),
-    [tracks],
-  )
 
   return (
     <div className="flex min-h-full flex-1 flex-col overflow-hidden md:flex-row">
@@ -430,31 +473,29 @@ export function PlaylistsPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {loading && (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-[var(--text-muted)]" />
-            </div>
+          {loading && playlists.length === 0 ? (
+            <PlaylistListSkeleton />
+          ) : (
+            playlists.map((playlist) => (
+              <button
+                key={playlist.id}
+                onClick={() => setSelectedId(playlist.id)}
+                className={`flex w-full items-center gap-3 border-0 px-4 py-3 text-left transition-colors ${
+                  selectedId === playlist.id
+                    ? 'bg-[var(--bg-hover)] text-white'
+                    : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                }`}
+              >
+                <ListMusic className="h-4 w-4 shrink-0" />
+                <span className="flex-1 truncate text-[14px] font-medium">
+                  {playlist.name}
+                </span>
+                {playlist.isActive && (
+                  <Check className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+                )}
+              </button>
+            ))
           )}
-
-          {playlists.map((playlist) => (
-            <button
-              key={playlist.id}
-              onClick={() => setSelectedId(playlist.id)}
-              className={`flex w-full items-center gap-3 border-0 px-4 py-3 text-left transition-colors ${
-                selectedId === playlist.id
-                  ? 'bg-[var(--bg-hover)] text-white'
-                  : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
-              }`}
-            >
-              <ListMusic className="h-4 w-4 shrink-0" />
-              <span className="flex-1 truncate text-[14px] font-medium">
-                {playlist.name}
-              </span>
-              {playlist.isActive && (
-                <Check className="h-4 w-4 shrink-0 text-[var(--accent)]" />
-              )}
-            </button>
-          ))}
 
           {!loading && playlists.length === 0 && (
             <p className="px-4 py-8 text-center text-[13px] text-[var(--text-muted)]">
@@ -465,9 +506,11 @@ export function PlaylistsPage() {
       </div>
 
       <div className="flex flex-1 flex-col overflow-y-auto">
-        {selected ? (
+        {loading && playlists.length === 0 ? (
+          <PlaylistDetailSkeleton />
+        ) : selected ? (
           <>
-            <div className="sticky top-0 z-10 border-b border-[var(--border-light)] bg-[var(--bg-primary)]/92 p-4 backdrop-blur-xl">
+            <div className="sticky top-0 z-20 border-b border-[var(--border-light)] bg-[var(--bg-primary)]/92 p-4 backdrop-blur-xl">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <h1 className="text-xl font-bold text-white">
@@ -498,158 +541,181 @@ export function PlaylistsPage() {
                 </div>
               </div>
 
-              <div className="mt-4 flex w-full flex-col gap-4 lg:flex-row lg:items-end items-start">
-                <div className="min-w-0 flex-1">
-                  <Input
-                    label="BUSCAR NO YOUTUBE"
-                    placeholder="Pesquise uma música, artista ou cole um link do YouTube"
-                    value={mediaInput}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setMediaInput(value)
-                      setMediaError(null)
-                      setMediaNotice(null)
+              <div ref={searchSurfaceRef} className="relative mt-4">
+                <div className="flex w-full flex-col items-start gap-4 lg:flex-row lg:items-end">
+                  <div className="min-w-0 flex-1">
+                    <Input
+                      label="BUSCAR NO YOUTUBE"
+                      placeholder="Pesquise uma música, artista ou cole um link do YouTube"
+                      value={mediaInput}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setMediaInput(value)
+                        setMediaError(null)
+                        setMediaNotice(null)
 
-                      if (!value.trim() || looksLikeMediaUrl(value)) {
+                        if (!value.trim() || looksLikeMediaUrl(value)) {
+                          setSearchResults([])
+                          setHasSearchedMedia(false)
+                          return
+                        }
+
                         setSearchResults([])
+                        setHasSearchedMedia(false)
+                      }}
+                      onKeyDown={(e) =>
+                        e.key === 'Enter' && void handleMediaSubmit()
                       }
-                    }}
-                    onKeyDown={(e) =>
-                      e.key === 'Enter' && void handleMediaSubmit()
-                    }
-                    error={mediaError ?? undefined}
-                    className="w-full"
-                  />
+                      error={mediaError ?? undefined}
+                      className="w-full"
+                    />
+                  </div>
+                  <Button
+                    onClick={() => void handleMediaSubmit()}
+                    isLoading={mediaBusy}
+                    disabled={!mediaInputTrimmed}
+                    className="shrink-0"
+                  >
+                    {mediaInputIsUrl ? (
+                      <Link2 className="h-4 w-4" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                    {mediaInputIsUrl ? 'Adicionar link' : 'Buscar'}
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => void handleMediaSubmit()}
-                  isLoading={mediaBusy}
-                  disabled={!mediaInputTrimmed}
-                  className="shrink-0"
-                >
-                  {mediaInputIsUrl ? (
-                    <Link2 className="h-4 w-4" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
-                  {mediaInputIsUrl ? 'Adicionar link' : 'Buscar'}
-                </Button>
-              </div>
 
-              {mediaNotice && !mediaError && (
-                <div className="mt-3 rounded-xl border border-[rgba(55,210,124,0.22)] bg-[rgba(11,29,19,0.72)] px-4 py-2 text-[12px] font-medium text-[var(--accent-hover)]">
-                  {mediaNotice}
-                </div>
-              )}
+                {mediaNotice && !mediaError && (
+                  <div className="mt-3 rounded-xl border border-[rgba(55,210,124,0.22)] bg-[rgba(11,29,19,0.72)] px-4 py-2 text-[12px] font-medium text-[var(--accent-hover)]">
+                    {mediaNotice}
+                  </div>
+                )}
+
+                {searchPanelOpen ? (
+                  <motion.section
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                    transition={{ duration: 0.16 }}
+                    className="absolute inset-x-0 top-full z-30 mt-3 overflow-hidden rounded-[1.65rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.96)] shadow-[0_26px_56px_rgba(0,0,0,0.42)] backdrop-blur-xl"
+                  >
+                    <div className="flex items-start justify-between gap-3 border-b border-[rgba(255,255,255,0.06)] px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                          Resultados
+                        </p>
+                        <p className="mt-1 text-[13px] text-[var(--text-secondary)]">
+                          A busca fica sobre a playlist para você não perder o
+                          contexto.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {!searchLoading ? (
+                          <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(12,18,27,0.82)] px-2 text-[11px] font-semibold text-white">
+                            {searchResults.length}
+                          </span>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchResults([])
+                            setHasSearchedMedia(false)
+                          }}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(12,18,27,0.76)] text-[var(--text-secondary)] transition-colors hover:text-white"
+                          aria-label="Fechar resultados da busca"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="max-h-[360px] overflow-y-auto p-3">
+                      {searchLoading ? (
+                        <SearchResultsSkeleton />
+                      ) : searchResults.length > 0 ? (
+                        <div className="space-y-2">
+                          {searchResults.map((result) => {
+                            const isSelected = trackSourceKeys.has(
+                              `${result.source}:${result.sourceId}`,
+                            )
+
+                            return (
+                              <div
+                                key={result.sourceId}
+                                className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${
+                                  isSelected
+                                    ? 'border-[rgba(55,210,124,0.24)] bg-[rgba(11,29,19,0.78)]'
+                                    : 'border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.72)]'
+                                }`}
+                              >
+                                {result.thumbnailUrl ? (
+                                  <img
+                                    src={result.thumbnailUrl}
+                                    alt=""
+                                    className="h-14 w-14 rounded-xl object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[rgba(255,255,255,0.05)]">
+                                    <Disc3 className="h-5 w-5 text-[var(--text-muted)]" />
+                                  </div>
+                                )}
+
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-[14px] font-semibold text-white">
+                                    {result.title}
+                                  </p>
+                                  <p className="truncate text-[12px] text-[var(--text-secondary)]">
+                                    {result.artist}
+                                  </p>
+                                  <p
+                                    className={`mt-1 text-[11px] ${
+                                      isSelected
+                                        ? 'text-[var(--accent-hover)]'
+                                        : 'text-[var(--text-muted)]'
+                                    }`}
+                                  >
+                                    {isSelected
+                                      ? 'Esta faixa ja esta na playlist.'
+                                      : 'Detalhes completos ao adicionar'}
+                                  </p>
+                                </div>
+
+                                {isSelected ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(55,210,124,0.26)] bg-[rgba(11,29,19,0.82)] px-3 py-1.5 text-[11px] font-semibold text-[var(--accent-hover)]">
+                                    <Check className="h-3.5 w-3.5" />
+                                    Na playlist
+                                  </span>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    onClick={() =>
+                                      void handleAddSearchResult(result)
+                                    }
+                                    isLoading={
+                                      addingSearchResultId === result.sourceId
+                                    }
+                                  >
+                                    Adicionar
+                                  </Button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.72)] px-4 py-3 text-[13px] text-[var(--text-secondary)]">
+                          Nenhum vídeo encontrado para essa busca.
+                        </div>
+                      )}
+                    </div>
+                  </motion.section>
+                ) : null}
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto">
               <div className="space-y-4 p-4">
-                {searchLoading && (
-                  <div className="flex items-center gap-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.7)] px-4 py-3 text-[13px] text-[var(--text-secondary)]">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Buscando vídeos no YouTube...
-                  </div>
-                )}
-
-                {!searchLoading && searchResults.length > 0 && (
-                  <section className="rounded-[1.75rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.68)] p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                          Resultados
-                        </p>
-                        <p className="text-[13px] text-[var(--text-secondary)]">
-                          Adicione faixas novas sem perder a visão da playlist.
-                        </p>
-                      </div>
-                      <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(12,18,27,0.82)] px-2 text-[11px] font-semibold text-white">
-                        {searchResults.length}
-                      </span>
-                    </div>
-
-                    <div className="grid max-h-[320px] gap-2 overflow-y-auto pr-1 xl:grid-cols-2">
-                      {searchResults.map((result) => {
-                        const isSelected = trackSourceKeys.has(
-                          `${result.source}:${result.sourceId}`,
-                        )
-
-                        return (
-                          <div
-                            key={result.sourceId}
-                            className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${
-                              isSelected
-                                ? 'border-[rgba(55,210,124,0.24)] bg-[rgba(11,29,19,0.78)]'
-                                : 'border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.72)]'
-                            }`}
-                          >
-                            {result.thumbnailUrl ? (
-                              <img
-                                src={result.thumbnailUrl}
-                                alt=""
-                                className="h-14 w-14 rounded-xl object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[rgba(255,255,255,0.05)]">
-                                <Disc3 className="h-5 w-5 text-[var(--text-muted)]" />
-                              </div>
-                            )}
-
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-[14px] font-semibold text-white">
-                                {result.title}
-                              </p>
-                              <p className="truncate text-[12px] text-[var(--text-secondary)]">
-                                {result.artist}
-                              </p>
-                              <p
-                                className={`mt-1 text-[11px] ${
-                                  isSelected
-                                    ? 'text-[var(--accent-hover)]'
-                                    : 'text-[var(--text-muted)]'
-                                }`}
-                              >
-                                {isSelected
-                                  ? 'Esta faixa ja esta na playlist.'
-                                  : 'Detalhes completos ao adicionar'}
-                              </p>
-                            </div>
-
-                            {isSelected ? (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(55,210,124,0.26)] bg-[rgba(11,29,19,0.82)] px-3 py-1.5 text-[11px] font-semibold text-[var(--accent-hover)]">
-                                <Check className="h-3.5 w-3.5" />
-                                Na playlist
-                              </span>
-                            ) : (
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  void handleAddSearchResult(result)
-                                }
-                                isLoading={
-                                  addingSearchResultId === result.sourceId
-                                }
-                              >
-                                Adicionar
-                              </Button>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </section>
-                )}
-
-                {!searchLoading &&
-                  mediaInputTrimmed &&
-                  !mediaInputIsUrl &&
-                  searchResults.length === 0 &&
-                  !mediaError && (
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.7)] px-4 py-3 text-[13px] text-[var(--text-secondary)]">
-                      Nenhum vídeo encontrado para essa busca.
-                    </div>
-                  )}
-
                 {tracks.length === 0 ? (
                   <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[1.75rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.42)] px-4 text-center">
                     <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--bg-elevated)]">
@@ -798,6 +864,84 @@ export function PlaylistsPage() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function PlaylistListSkeleton() {
+  return (
+    <div className="space-y-2 px-4 py-4">
+      {Array.from({ length: 6 }, (_, index) => (
+        <div
+          key={index}
+          className="animate-pulse rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] px-4 py-3"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-4 w-4 rounded-full bg-[rgba(255,255,255,0.08)]" />
+            <div className="h-3 w-full max-w-[11rem] rounded-full bg-[rgba(255,255,255,0.08)]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PlaylistDetailSkeleton() {
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="border-b border-[var(--border-light)] bg-[var(--bg-primary)]/92 p-4 backdrop-blur-xl">
+        <div className="animate-pulse space-y-4">
+          <div className="space-y-2">
+            <div className="h-6 w-40 rounded-full bg-[rgba(255,255,255,0.08)]" />
+            <div className="h-3 w-28 rounded-full bg-[rgba(255,255,255,0.06)]" />
+          </div>
+
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+            <div className="h-[74px] flex-1 rounded-[1.4rem] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]" />
+            <div className="h-10 w-32 rounded-full bg-[rgba(255,255,255,0.08)]" />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-3 p-4">
+        {Array.from({ length: 5 }, (_, index) => (
+          <div
+            key={index}
+            className="animate-pulse rounded-[1.5rem] border border-[rgba(255,255,255,0.06)] bg-[rgba(8,12,18,0.42)] px-5 py-4"
+          >
+            <div className="flex items-center gap-4">
+              <div className="h-11 w-11 rounded-xl bg-[rgba(255,255,255,0.08)]" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-3.5 w-3/5 rounded-full bg-[rgba(255,255,255,0.08)]" />
+                <div className="h-3 w-2/5 rounded-full bg-[rgba(255,255,255,0.06)]" />
+              </div>
+              <div className="h-8 w-8 rounded-lg bg-[rgba(255,255,255,0.08)]" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SearchResultsSkeleton() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 4 }, (_, index) => (
+        <div
+          key={index}
+          className="animate-pulse rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] px-3 py-3"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-14 w-14 rounded-xl bg-[rgba(255,255,255,0.08)]" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="h-3.5 w-4/5 rounded-full bg-[rgba(255,255,255,0.08)]" />
+              <div className="h-3 w-2/5 rounded-full bg-[rgba(255,255,255,0.06)]" />
+            </div>
+            <div className="h-9 w-24 rounded-full bg-[rgba(255,255,255,0.08)]" />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

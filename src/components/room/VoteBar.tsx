@@ -20,10 +20,7 @@ import { useRoomStore } from '../../stores/roomStore'
 import { useUIStore } from '../../stores/uiStore'
 import { Button } from '../ui/Button'
 
-interface VoteBarProps {
-  showQueueAction?: boolean
-  floating?: boolean
-}
+type VoteBarVariant = 'floating' | 'inline' | 'compact' | 'sheet' | 'cta'
 
 type VoteType = 'woot' | 'grab' | 'meh'
 type PlaylistTrackRecord = {
@@ -84,14 +81,13 @@ const VOTE_APPEARANCE: Record<VoteType, VoteAppearance> = {
   },
 }
 
-export function VoteBar() {
-  const {
-    handleVote,
-    clientGrabbed,
-    clientGrabPlaylistId,
-    clientVote,
-    votes,
-  } = useVoteBarState()
+export function VoteBar({
+  variant = 'floating',
+}: {
+  variant?: VoteBarVariant
+}) {
+  const { handleVote, clientGrabbed, clientGrabPlaylistId, clientVote, votes } =
+    useVoteBarState()
   const playback = useRoomStore((s) => s.playback)
   const openFloatingPanel = useUIStore((s) => s.openFloatingPanel)
   const {
@@ -114,8 +110,10 @@ export function VoteBar() {
   const [isSavingGrab, setIsSavingGrab] = useState(false)
   const [isRemovingGrab, setIsRemovingGrab] = useState(false)
   const [grabError, setGrabError] = useState<string | null>(null)
-  const [isGrabDuplicateSelection, setIsGrabDuplicateSelection] = useState(false)
-  const [isValidatingGrabSelection, setIsValidatingGrabSelection] = useState(false)
+  const [isGrabDuplicateSelection, setIsGrabDuplicateSelection] =
+    useState(false)
+  const [isValidatingGrabSelection, setIsValidatingGrabSelection] =
+    useState(false)
   const [isGrabRemovalDialogOpen, setIsGrabRemovalDialogOpen] = useState(false)
   const resetRecentVoteTimerRef = useRef<number | null>(null)
   const grabbedPlaylistName =
@@ -166,11 +164,7 @@ export function VoteBar() {
     return () => {
       cancelled = true
     }
-  }, [
-    isGrabModalOpen,
-    playback,
-    selectedGrabPlaylistId,
-  ])
+  }, [isGrabModalOpen, playback, selectedGrabPlaylistId])
 
   const markRecentVote = (type: VoteType) => {
     setRecentVote({
@@ -263,7 +257,9 @@ export function VoteBar() {
       markRecentVote('grab')
       setIsGrabRemovalDialogOpen(false)
     } catch (error: any) {
-      setGrabError(error.message || 'Não foi possível remover a faixa da playlist.')
+      setGrabError(
+        error.message || 'Não foi possível remover a faixa da playlist.',
+      )
     } finally {
       setIsRemovingGrab(false)
     }
@@ -298,8 +294,7 @@ export function VoteBar() {
       return
     }
 
-    const initialPlaylistId =
-      latestActivePlaylistId ?? latestPlaylists[0].id
+    const initialPlaylistId = latestActivePlaylistId ?? latestPlaylists[0].id
 
     setSelectedGrabPlaylistId(initialPlaylistId)
 
@@ -325,12 +320,19 @@ export function VoteBar() {
 
   return (
     <>
-      <div className="rounded-[1.45rem] bg-[rgba(8,13,19,0.78)] p-1.5 shadow-[0_18px_34px_rgba(0,0,0,0.34)] backdrop-blur-[18px]">
+      <div
+        className={`rounded-[1.45rem] p-1.5 backdrop-blur-[18px] ${
+          variant === 'inline'
+            ? 'border border-[rgba(255,255,255,0.08)] bg-[rgba(8,13,19,0.72)] shadow-[0_20px_38px_rgba(0,0,0,0.24)]'
+            : 'bg-[rgba(8,13,19,0.78)] shadow-[0_18px_34px_rgba(0,0,0,0.34)]'
+        }`}
+      >
         <div className="flex items-stretch gap-1.5">
           <VoteButton
             type="woot"
             value={votes.woots}
-            compact
+            compact={variant === 'floating'}
+            fill={variant === 'inline'}
             isSelected={clientVote === 'woot'}
             interactionNonce={
               recentVote?.type === 'woot' ? recentVote.nonce : null
@@ -340,7 +342,8 @@ export function VoteBar() {
           <VoteButton
             type="grab"
             value={votes.grabs}
-            compact
+            compact={variant === 'floating'}
+            fill={variant === 'inline'}
             isSelected={clientGrabbed}
             interactionNonce={
               recentVote?.type === 'grab' ? recentVote.nonce : null
@@ -350,7 +353,8 @@ export function VoteBar() {
           <VoteButton
             type="meh"
             value={votes.mehs}
-            compact
+            compact={variant === 'floating'}
+            fill={variant === 'inline'}
             isSelected={clientVote === 'meh'}
             interactionNonce={
               recentVote?.type === 'meh' ? recentVote.nonce : null
@@ -389,7 +393,9 @@ export function VoteBar() {
           setGrabError(null)
           setIsGrabDuplicateSelection(false)
         }}
-        isConfirmDisabled={isGrabDuplicateSelection || isValidatingGrabSelection}
+        isConfirmDisabled={
+          isGrabDuplicateSelection || isValidatingGrabSelection
+        }
         onConfirm={() => {
           if (!selectedGrabPlaylistId) {
             setGrabError('Selecione uma playlist para salvar a faixa.')
@@ -423,42 +429,98 @@ export function VoteBar() {
   )
 }
 
-export function QueueActionButton() {
-  const { isInQueue, isCurrentDJ, handleToggleQueue } =
-    useVoteBarState()
+export function QueueActionButton({
+  variant = 'floating',
+}: {
+  variant?: VoteBarVariant
+}) {
+  const { isInQueue, isCurrentDJ, handleToggleQueue } = useVoteBarState()
 
   return (
     <motion.button
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.985 }}
       onClick={handleToggleQueue}
-      className={`flex min-w-[200px] items-center justify-between gap-3 rounded-[1.35rem] border px-4 py-3 text-left shadow-[0_18px_34px_rgba(0,0,0,0.42)] backdrop-blur-[14px] transition-all ${isCurrentDJ
-        ? 'border-[rgba(255,97,88,0.3)] bg-[rgba(68,17,19,0.78)] text-[rgba(255,214,211,0.94)]'
-        : isInQueue
-          ? 'border-[rgba(255,255,255,0.14)] bg-[rgba(12,17,24,0.82)] text-white'
-          : 'border-[rgba(55,210,124,0.26)] bg-[rgba(11,29,19,0.82)] text-[var(--accent-hover)]'
-        }`}
+      className={`flex items-center border text-left backdrop-blur-[14px] transition-all ${
+        variant === 'compact'
+          ? 'min-w-0 justify-between gap-3 rounded-[1.35rem] px-3 py-2.5 shadow-[0_16px_28px_rgba(0,0,0,0.24)]'
+          : variant === 'cta'
+            ? 'h-11 w-full min-w-0 justify-start gap-2 rounded-[1.1rem] px-3 shadow-[0_12px_24px_rgba(0,0,0,0.16)]'
+            : variant === 'sheet'
+              ? 'min-w-0 justify-between gap-3 rounded-[1.35rem] px-3 py-2 shadow-none'
+              : variant === 'inline'
+                ? 'w-full min-w-0 justify-between gap-3 rounded-[1.35rem] px-4 py-3 shadow-[0_20px_38px_rgba(0,0,0,0.24)]'
+                : 'min-w-[200px] justify-between gap-3 rounded-[1.35rem] px-4 py-3 shadow-[0_18px_34px_rgba(0,0,0,0.42)]'
+      } ${
+        isCurrentDJ
+          ? 'border-[rgba(255,97,88,0.3)] bg-[rgba(68,17,19,0.78)] text-[rgba(255,214,211,0.94)]'
+          : isInQueue
+            ? 'border-[rgba(255,255,255,0.14)] bg-[rgba(12,17,24,0.82)] text-white'
+            : 'border-[rgba(55,210,124,0.26)] bg-[rgba(11,29,19,0.82)] text-[var(--accent-hover)]'
+      }`}
     >
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-current/15 bg-black/15">
+        <div
+          className={`flex items-center justify-center rounded-2xl border border-current/15 bg-black/15 ${
+            variant === 'compact'
+              ? 'h-9 w-9'
+              : variant === 'cta'
+                ? 'h-7 w-7 rounded-xl'
+                : variant === 'sheet'
+                  ? 'h-8 w-8 rounded-xl'
+                  : 'h-10 w-10'
+          }`}
+        >
           {isCurrentDJ || isInQueue ? (
-            <LogOutIcon className="h-4 w-4" />
+            <LogOutIcon
+              className={variant === 'cta' ? 'h-3.5 w-3.5' : 'h-4 w-4'}
+            />
           ) : (
-            <LogIn className="h-4 w-4" />
+            <LogIn className={variant === 'cta' ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
           )}
         </div>
-        <div>
-          <span className="block text-[9px] font-semibold uppercase tracking-[0.12em] text-current/70">
-            {isCurrentDJ ? 'Booth ativo' : 'Sua vez'}
-          </span>
-          <span className="block text-[13px] font-semibold">
-            {isCurrentDJ
-              ? 'Sair do booth'
-              : isInQueue
-                ? 'Sair da fila'
-                : 'Entrar na fila'}
-          </span>
-        </div>
+        {variant === 'compact' ? (
+          <div>
+            <span className="block text-[9px] font-semibold uppercase tracking-[0.12em] text-current/70">
+              Fila
+            </span>
+            <span className="block text-[12px] font-semibold">
+              {isCurrentDJ ? 'Sair' : isInQueue ? 'Na fila' : 'Entrar'}
+            </span>
+          </div>
+        ) : variant === 'cta' ? (
+          <div className="min-w-0">
+            <span className="block truncate text-[11px] font-semibold">
+              {isCurrentDJ
+                ? 'Sair do booth'
+                : isInQueue
+                  ? 'Sair da fila'
+                  : 'Entrar na fila'}
+            </span>
+          </div>
+        ) : variant === 'sheet' ? (
+          <div>
+            <span className="block text-[9px] font-semibold uppercase tracking-[0.12em] text-current/70">
+              {isCurrentDJ ? 'Booth' : 'Fila'}
+            </span>
+            <span className="block text-[11px] font-semibold">
+              {isCurrentDJ ? 'Sair' : isInQueue ? 'Na fila' : 'Entrar'}
+            </span>
+          </div>
+        ) : (
+          <div>
+            <span className="block text-[9px] font-semibold uppercase tracking-[0.12em] text-current/70">
+              {isCurrentDJ ? 'Booth ativo' : 'Sua vez'}
+            </span>
+            <span className="block text-[13px] font-semibold">
+              {isCurrentDJ
+                ? 'Sair do booth'
+                : isInQueue
+                  ? 'Sair da fila'
+                  : 'Entrar na fila'}
+            </span>
+          </div>
+        )}
       </div>
     </motion.button>
   )
@@ -483,7 +545,9 @@ function useVoteBarState() {
   ) => {
     wsClient?.send('vote', {
       type,
-      ...(typeof options?.active === 'boolean' ? { active: options.active } : {}),
+      ...(typeof options?.active === 'boolean'
+        ? { active: options.active }
+        : {}),
       ...(options?.playlistId !== undefined
         ? { playlistId: options.playlistId }
         : {}),
@@ -517,7 +581,9 @@ async function findCurrentTrackInPlaylist(
   source: 'youtube' | 'soundcloud',
   sourceId: string,
 ) {
-  const tracks = await api<PlaylistTrackRecord[]>(`/api/playlists/${playlistId}/tracks`)
+  const tracks = await api<PlaylistTrackRecord[]>(
+    `/api/playlists/${playlistId}/tracks`,
+  )
   return (
     tracks.find(
       (track) => track.source === source && track.sourceId === sourceId,
@@ -757,7 +823,9 @@ function GrabRemovalDialog({
                   </h2>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
                     Desativar o grab vai remover esta faixa
-                    {playlistName ? ` da playlist ${playlistName}.` : ' da playlist usada no grab.'}
+                    {playlistName
+                      ? ` da playlist ${playlistName}.`
+                      : ' da playlist usada no grab.'}
                   </p>
                 </div>
               </div>
@@ -813,6 +881,7 @@ function VoteButton({
   value,
   onClick,
   compact = false,
+  fill = false,
   isSelected = false,
   interactionNonce,
 }: {
@@ -820,6 +889,7 @@ function VoteButton({
   value: number
   onClick: () => void
   compact?: boolean
+  fill?: boolean
   isSelected?: boolean
   interactionNonce?: number | null
 }) {
@@ -833,9 +903,9 @@ function VoteButton({
   const iconTransition = reduceMotion
     ? undefined
     : {
-      duration: 0.48,
-      ease: [0.22, 1, 0.36, 1] as const,
-    }
+        duration: 0.48,
+        ease: [0.22, 1, 0.36, 1] as const,
+      }
 
   return (
     <motion.button
@@ -843,10 +913,11 @@ function VoteButton({
       onClick={onClick}
       whileHover={reduceMotion ? undefined : { y: -2, scale: 1.02 }}
       whileTap={reduceMotion ? undefined : { scale: 0.95 }}
-      className={`group relative isolate overflow-hidden rounded-[1rem] border transition-all duration-200 ${compact
-        ? 'flex h-10 min-w-[64px] items-center justify-center gap-1.5 px-3'
-        : 'flex h-11 flex-1 min-w-[88px] items-center justify-center gap-2 px-4'
-        }`}
+      className={`group relative isolate overflow-hidden rounded-[1rem] border transition-all duration-200 ${
+        compact
+          ? 'flex h-10 min-w-[64px] items-center justify-center gap-1.5 px-3'
+          : 'flex h-11 flex-1 min-w-[88px] items-center justify-center gap-2 px-4'
+      } ${fill ? 'min-w-0 flex-1' : ''}`}
       style={buttonStyle}
     >
       <AnimatePresence>
@@ -887,8 +958,9 @@ function VoteButton({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -8, opacity: 0 }}
             transition={{ duration: reduceMotion ? 0.01 : 0.22 }}
-            className={`block font-bold tabular-nums ${compact ? 'text-[12px]' : 'text-[14px]'
-              }`}
+            className={`block font-bold tabular-nums ${
+              compact ? 'text-[12px]' : 'text-[14px]'
+            }`}
             style={{ color: isSelected ? '#fff' : 'rgba(255,255,255,0.85)' }}
           >
             {value}

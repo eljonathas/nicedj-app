@@ -11,6 +11,27 @@ export function YouTubePlayer() {
   const playback = useRoomStore((s) => s.playback)
   const playerVolume = useRoomStore((s) => s.playerVolume)
   const playerRef = useRef<YouTubePlayerApi | null>(null)
+  const autoplayRetryRef = useRef(0)
+  const autoplayTimerRef = useRef<number | null>(null)
+  const pendingAutoplayRef = useRef(false)
+
+  const clearAutoplayTimer = () => {
+    if (autoplayTimerRef.current !== null) {
+      window.clearTimeout(autoplayTimerRef.current)
+      autoplayTimerRef.current = null
+    }
+  }
+
+  const applyVolume = (player: YouTubePlayerApi) => {
+    player.setVolume?.(playerVolume)
+
+    if (playerVolume === 0) {
+      player.mute?.()
+      return
+    }
+
+    player.unMute?.()
+  }
 
   const syncPlayback = (player: YouTubePlayerApi, shouldAutoplay: boolean) => {
     if (!playback) return
@@ -24,45 +45,59 @@ export function YouTubePlayer() {
     }
 
     if (playback.paused) {
+      pendingAutoplayRef.current = false
+      clearAutoplayTimer()
       player.pauseVideo?.()
       return
     }
 
-    if (shouldAutoplay && playerVolume > 0) {
-      player.mute?.()
-    }
+    pendingAutoplayRef.current = shouldAutoplay
+    player.mute?.()
 
     player.playVideo?.()
+  }
 
-    if (shouldAutoplay && playerVolume > 0) {
-      window.setTimeout(() => {
-        player.unMute?.()
-        player.setVolume?.(playerVolume)
-      }, 120)
+  const scheduleAutoplayRetry = (player: YouTubePlayerApi) => {
+    if (!pendingAutoplayRef.current || autoplayRetryRef.current >= 4) {
+      return
     }
+
+    clearAutoplayTimer()
+    autoplayRetryRef.current += 1
+    autoplayTimerRef.current = window.setTimeout(() => {
+      syncPlayback(player, true)
+    }, 240)
   }
 
   useEffect(() => {
     if (!playerRef.current || !playback) return
+
+    autoplayRetryRef.current = 0
     syncPlayback(playerRef.current, true)
   }, [playback])
 
   useEffect(() => {
     if (!playerRef.current) return
 
-    playerRef.current.setVolume?.(playerVolume)
     if (playerVolume === 0) {
       playerRef.current.mute?.()
+      playerRef.current.setVolume?.(0)
       return
     }
 
-    playerRef.current.unMute?.()
+    playerRef.current.setVolume?.(playerVolume)
+    if (!pendingAutoplayRef.current) {
+      playerRef.current.unMute?.()
+    }
   }, [playerVolume])
+
+  useEffect(() => clearAutoplayTimer, [])
 
   if (!playback || playback.source !== 'youtube') return null
 
   const onReady = (event: YouTubeEvent) => {
     playerRef.current = event.target
+    autoplayRetryRef.current = 0
     const iframe = event.target.getIframe?.()
     iframe?.setAttribute(
       'allow',
@@ -72,6 +107,26 @@ export function YouTubePlayer() {
     iframe?.classList.add('pointer-events-none', 'select-none')
 
     syncPlayback(event.target, true)
+  }
+
+  const onStateChange = (event: YouTubeEvent<number>) => {
+    if (!playback || playback.paused) {
+      pendingAutoplayRef.current = false
+      clearAutoplayTimer()
+      return
+    }
+
+    if (event.data === 1) {
+      pendingAutoplayRef.current = false
+      autoplayRetryRef.current = 0
+      clearAutoplayTimer()
+      applyVolume(event.target)
+      return
+    }
+
+    if (event.data === -1 || event.data === 2 || event.data === 5) {
+      scheduleAutoplayRetry(event.target)
+    }
   }
 
   return (
@@ -87,12 +142,14 @@ export function YouTubePlayer() {
           fs: 0,
           iv_load_policy: 3,
           modestbranding: 1,
+          mute: 1,
           playsinline: 1,
           rel: 0,
           showinfo: 0,
         },
       }}
       onReady={onReady}
+      onStateChange={onStateChange}
       className="h-full w-full"
       iframeClassName="h-full w-full pointer-events-none select-none"
     />

@@ -113,8 +113,8 @@ export function RoomManagementUsersSection({
           const roleMeta = getRoomRoleMeta(user.role)
           const canManageTarget = Boolean(
             currentUserId &&
-              currentUserId !== user.id &&
-              canManageRoomRole(currentUserRole, user.role),
+            currentUserId !== user.id &&
+            canManageRoomRole(currentUserRole, user.role),
           )
           const canMute =
             canManageTarget &&

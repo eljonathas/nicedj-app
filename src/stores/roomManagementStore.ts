@@ -215,10 +215,13 @@ export const useRoomManagementStore = create<RoomManagementState>((set) => ({
     set({ saving: true, error: null })
 
     try {
-      const emoji = await api<RoomManagementEmoji>(`/api/rooms/${roomId}/emojis`, {
-        method: 'POST',
-        body: input,
-      })
+      const emoji = await api<RoomManagementEmoji>(
+        `/api/rooms/${roomId}/emojis`,
+        {
+          method: 'POST',
+          body: input,
+        },
+      )
 
       set((state) => ({
         customEmojis: [emoji, ...state.customEmojis],
@@ -244,7 +247,9 @@ export const useRoomManagementStore = create<RoomManagementState>((set) => ({
       })
 
       set((state) => ({
-        customEmojis: state.customEmojis.filter((emoji) => emoji.id !== emojiId),
+        customEmojis: state.customEmojis.filter(
+          (emoji) => emoji.id !== emojiId,
+        ),
         saving: false,
       }))
     } catch (error: any) {

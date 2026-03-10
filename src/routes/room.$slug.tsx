@@ -22,11 +22,14 @@ import {
   RoomProfileDock,
   RoomTopBar,
 } from '../components/room/RoomFooter'
+import { RoomCompactLayout } from '../components/room/RoomCompactLayout'
 import { QueueActionButton, VoteBar } from '../components/room/VoteBar'
 import { ChatPanel } from '../components/chat/ChatPanel'
 import { Stage } from '../components/room/Stage'
 import { DJQueue, UserList } from '../components/room/RoomSidebar'
 import { Button } from '../components/ui/Button'
+
+export const ROOM_COMPACT_BREAKPOINT = 1024
 
 export const Route = createFileRoute('/room/$slug')({
   component: RoomPage,
@@ -63,9 +66,12 @@ function RoomPage() {
   const {
     activePanel,
     setActivePanel,
-    isMobile,
+    isMobile: isViewportMobile,
     setIsMobile,
+    isRoomCompactLayout,
+    setRoomCompactLayout,
     setRoomSidebarWidth,
+    openFloatingPanel,
   } = useUIStore()
   const [loadingRoom, setLoadingRoom] = useState(true)
   const [roomError, setRoomError] = useState<string | null>(null)
@@ -112,21 +118,32 @@ function RoomPage() {
   }, [reset])
 
   useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 1024)
-    handler()
+    const handler = () => {
+      const viewportWidth = window.innerWidth
+      const nextIsViewportMobile = viewportWidth < 768
+      const nextIsCompactLayout = viewportWidth < ROOM_COMPACT_BREAKPOINT
 
+      setIsMobile(nextIsViewportMobile)
+      setRoomCompactLayout(nextIsCompactLayout)
+    }
+
+    handler()
     window.addEventListener('resize', handler)
-    return () => window.removeEventListener('resize', handler)
-  }, [setIsMobile])
+
+    return () => {
+      window.removeEventListener('resize', handler)
+      setRoomCompactLayout(false)
+    }
+  }, [setIsMobile, setRoomCompactLayout])
 
   useEffect(() => {
-    if (isMobile) {
+    if (isRoomCompactLayout) {
       setRoomSidebarWidth(0)
       return
     }
 
     setRoomSidebarWidth(isPanelCollapsed ? 58 : 336)
-  }, [isMobile, isPanelCollapsed, setRoomSidebarWidth])
+  }, [isPanelCollapsed, isRoomCompactLayout, setRoomSidebarWidth])
 
   useEffect(() => {
     return () => {
@@ -215,7 +232,11 @@ function RoomPage() {
   const panelHeader = (
     <div className="shrink-0 border-b border-[rgba(255,255,255,0.08)] bg-[#0c1119] shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
       <div
-        className={`flex items-center ${isPanelCollapsed ? 'justify-center p-2' : 'justify-between px-2.5 py-3'}`}
+        className={`flex items-center ${
+          isPanelCollapsed
+            ? 'justify-center p-2'
+            : 'justify-between px-2.5 py-3'
+        }`}
       >
         {!isPanelCollapsed && (
           <div className="mr-2 grid w-full grid-cols-3 gap-1 p-1">
@@ -251,16 +272,18 @@ function RoomPage() {
     </div>
   )
 
+  const playerCard = (
+    <div className="mx-auto aspect-video w-full overflow-hidden rounded-2xl">
+      <MediaPlayer />
+    </div>
+  )
+
   const stageContent = (
     <div className="relative h-full min-h-0 flex-1">
       <Stage users={users} djId={currentDjId} />
 
       <div className="pointer-events-none absolute inset-x-0 top-3 z-30 flex justify-center px-4">
-        <div className="pointer-events-auto w-full max-w-160">
-          <div className="mx-auto aspect-video w-full overflow-hidden rounded-2xl">
-            <MediaPlayer />
-          </div>
-        </div>
+        <div className="pointer-events-auto w-full max-w-160">{playerCard}</div>
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 z-40">
@@ -277,75 +300,59 @@ function RoomPage() {
     </div>
   )
 
-  if (isMobile) {
+  const compactControls = <VoteBar variant="inline" />
+
+  const compactQueueContent = <DJQueue variant="compact" />
+
+  if (isRoomCompactLayout) {
     return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="h-full w-full bg-[#080c13]"
       >
-        <div className="flex h-full flex-col">
-          <header className="shrink-0 border-b border-[rgba(255,255,255,0.08)] bg-[#0b1018] shadow-[0_16px_38px_rgba(0,0,0,0.4)]">
-            <RoomTopBar
-              roomName={room?.name || 'Sala'}
-              hostName={hostName}
-              activeUsersCount={users.length}
-              errorMessage={roomEventError}
+        <RoomCompactLayout
+          roomName={room?.name || 'Sala'}
+          hostName={hostName}
+          activeUsersCount={users.length}
+          errorMessage={roomEventError}
+          currentUsername={user.username}
+          currentUserAvatar={user.avatar}
+          isViewportMobile={isViewportMobile}
+          stage={
+            <Stage
+              users={users}
+              djId={currentDjId}
+              layout="hero"
+              maxCrowdUsers={isViewportMobile ? 0 : 8}
             />
-          </header>
-
-          <div className="flex min-h-0 flex-1 flex-col">
-            <section className="relative flex-[1.05] min-h-[280px]">
-              {stageContent}
-            </section>
-
-            <section className="flex min-h-0 flex-1 flex-col border-t border-[rgba(255,255,255,0.08)] bg-[#0a0f17]">
-              <div className="border-b border-[rgba(255,255,255,0.08)] px-2 py-2">
-                <div className="grid grid-cols-3 gap-1 rounded-lg bg-[rgba(9,13,20,0.96)] p-1">
-                  {panelTabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActivePanel(tab.id)}
-                      className={`flex h-8 items-center justify-center gap-1 rounded-md text-[11px] font-semibold transition-all ${
-                        activePanel === tab.id
-                          ? 'bg-[rgba(255,255,255,0.1)] text-white'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      <tab.icon className="h-3.5 w-3.5" />
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="relative flex-1 min-h-0">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activePanel}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.12 }}
-                    className="absolute inset-0"
-                  >
-                    {activePanel === 'chat' && <ChatPanel />}
-                    {activePanel === 'users' && <UserList />}
-                    {activePanel === 'queue' && <DJQueue />}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-
-              <div className="shrink-0 border-t border-[rgba(255,255,255,0.08)]">
-                <RoomProfileDock />
-              </div>
-            </section>
-          </div>
-
-          <footer className="shrink-0 border-t border-[rgba(255,255,255,0.08)] bg-[#0a0f17] shadow-[0_-10px_24px_rgba(0,0,0,0.34)]">
-            <RoomPlaylistDock />
-          </footer>
-        </div>
+          }
+          stageMedia={<MediaPlayer />}
+          controls={compactControls}
+          primaryAction={<QueueActionButton variant="cta" />}
+          chat={<ChatPanel />}
+          onOpenProfile={() =>
+            openFloatingPanel('profile', {
+              profileId: user.id,
+            })
+          }
+          sheetTabs={[
+            {
+              id: 'users',
+              label: 'Pessoas',
+              icon: Users,
+              badge: users.length,
+              content: <UserList variant="compact" />,
+            },
+            {
+              id: 'queue',
+              label: 'Fila',
+              icon: ListMusic,
+              badge: queue.length,
+              content: compactQueueContent,
+            },
+          ]}
+        />
       </motion.div>
     )
   }
@@ -375,8 +382,9 @@ function RoomPage() {
         </section>
 
         <aside
-          className={`shrink-0 border-l border-[rgba(255,255,255,0.08)] bg-[#0a0f17] transition-all duration-300 ${isPanelCollapsed ? 'w-[58px]' : 'w-[336px]'
-            }`}
+          className={`shrink-0 border-l border-[rgba(255,255,255,0.08)] bg-[#0a0f17] transition-all duration-300 ${
+            isPanelCollapsed ? 'w-[58px]' : 'w-[336px]'
+          }`}
         >
           <div className="flex h-full min-h-0 flex-col">
             {panelHeader}
@@ -390,10 +398,11 @@ function RoomPage() {
                       setActivePanel(tab.id)
                       setIsPanelCollapsed(false)
                     }}
-                    className={`h-9 w-9 rounded-md border transition-colors ${activePanel === tab.id
-                      ? 'border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.1)] text-white'
-                      : 'border-[rgba(255,255,255,0.1)] bg-[rgba(13,18,27,0.92)] text-[var(--text-muted)]'
-                      }`}
+                    className={`h-9 w-9 rounded-md border transition-colors ${
+                      activePanel === tab.id
+                        ? 'border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.1)] text-white'
+                        : 'border-[rgba(255,255,255,0.1)] bg-[rgba(13,18,27,0.92)] text-[var(--text-muted)]'
+                    }`}
                     aria-label={tab.label}
                   >
                     <tab.icon className="mx-auto h-4 w-4" />
@@ -419,9 +428,7 @@ function RoomPage() {
               </div>
             )}
 
-            <div
-              className={`shrink-0 border-t border-[rgba(255,255,255,0.08)]`}
-            >
+            <div className="shrink-0 border-t border-[rgba(255,255,255,0.08)]">
               <div className={isPanelCollapsed ? 'flex justify-center' : ''}>
                 <RoomProfileDock collapsed={isPanelCollapsed} />
               </div>

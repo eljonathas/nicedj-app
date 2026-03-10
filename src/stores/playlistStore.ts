@@ -78,8 +78,7 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
   tracks: [],
   loadedTracksPlaylistId: null,
   loading: false,
-  grabUsesActivePlaylistByDefault:
-    getInitialGrabUsesActivePlaylistByDefault(),
+  grabUsesActivePlaylistByDefault: getInitialGrabUsesActivePlaylistByDefault(),
 
   fetchPlaylists: async () => {
     set({ loading: true })

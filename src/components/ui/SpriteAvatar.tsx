@@ -22,62 +22,72 @@ export function SpriteAvatar({
   lazy = false,
 }: SpriteAvatarProps) {
   const [frame, setFrame] = useState(0)
-  const [shouldRenderImage, setShouldRenderImage] = useState(!lazy)
-  const elementRef = useRef<HTMLDivElement | null>(null)
+  const rafRef = useRef<number | null>(null)
+  const startedAtRef = useRef<number | null>(null)
 
   useEffect(() => {
+    if (rafRef.current !== null) {
+      window.cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+
+    startedAtRef.current = null
+
     if (!animate) {
       setFrame(0)
       return
     }
 
-    const timer = window.setInterval(() => {
-      setFrame((current) => (current + 1) % frameCount)
-    }, 1000 / fps)
+    const frameDuration = 1000 / fps
+    const tick = (timestamp: number) => {
+      if (startedAtRef.current === null) {
+        startedAtRef.current = timestamp
+      }
 
-    return () => window.clearInterval(timer)
-  }, [animate, fps, frameCount])
+      const elapsed = timestamp - startedAtRef.current
+      const nextFrame = Math.floor(elapsed / frameDuration) % frameCount
 
-  useEffect(() => {
-    if (!lazy || shouldRenderImage || !elementRef.current) {
-      return
+      setFrame((current) => (current === nextFrame ? current : nextFrame))
+      rafRef.current = window.requestAnimationFrame(tick)
     }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setShouldRenderImage(true)
-          observer.disconnect()
-        }
-      },
-      { rootMargin: '240px 0px' },
-    )
+    rafRef.current = window.requestAnimationFrame(tick)
 
-    observer.observe(elementRef.current)
-    return () => observer.disconnect()
-  }, [lazy, shouldRenderImage])
+    return () => {
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+    }
+  }, [animate, fps, frameCount])
 
   return (
     <div
-      ref={elementRef}
       role="img"
       aria-label={alt}
-      className={className}
+      className={`relative overflow-hidden ${className}`}
       style={{
         width: `${size}px`,
         height: `${size}px`,
-        backgroundImage: shouldRenderImage ? `url(${src})` : undefined,
-        backgroundSize: shouldRenderImage
-          ? `${size * frameCount}px ${size}px`
-          : undefined,
-        backgroundPosition: shouldRenderImage
-          ? `-${frame * size}px center`
-          : undefined,
-        backgroundRepeat: 'no-repeat',
-        backgroundColor: shouldRenderImage
-          ? 'transparent'
-          : 'rgba(255,255,255,0.04)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
       }}
-    />
+    >
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        loading={lazy ? 'lazy' : 'eager'}
+        decoding="async"
+        className="pointer-events-none absolute left-0 top-0 select-none"
+        style={{
+          width: `${size * frameCount}px`,
+          height: `${size}px`,
+          maxWidth: 'none',
+          transform: `translate3d(-${frame * size}px, 0, 0)`,
+          willChange: animate ? 'transform' : undefined,
+        }}
+      />
+    </div>
   )
 }

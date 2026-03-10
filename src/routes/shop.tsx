@@ -39,7 +39,6 @@ export function ShopPage() {
     purchase,
     equip,
   } = useEconomyStore()
-  const [hoveredAvatarId, setHoveredAvatarId] = useState<string | null>(null)
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
   const [activeSectionId, setActiveSectionId] = useState<
     'free' | 'level' | 'premium' | null
@@ -130,7 +129,6 @@ export function ShopPage() {
   useEffect(() => {
     setVisibleItemCount(ITEM_BATCH_SIZE)
     setVisibleLevelGroupCount(LEVEL_GROUP_BATCH_SIZE)
-    setHoveredAvatarId(null)
   }, [activeSectionId])
 
   useEffect(() => {
@@ -288,7 +286,6 @@ export function ShopPage() {
                     key={section.id}
                     type="button"
                     onClick={() => {
-                      setHoveredAvatarId(null)
                       setActiveSectionId(section.id)
                     }}
                     className={[
@@ -473,10 +470,6 @@ export function ShopPage() {
                                 isLevelLocked={isLevelLocked}
                                 hasFunds={hasFunds}
                                 isBusy={activeItemId === item.id}
-                                isHovered={hoveredAvatarId === item.id}
-                                onHoverChange={(hovered) =>
-                                  setHoveredAvatarId(hovered ? item.id : null)
-                                }
                                 onAction={() => void handleItemAction(item)}
                               />
                             )
@@ -509,10 +502,6 @@ export function ShopPage() {
                         isLevelLocked={isLevelLocked}
                         hasFunds={hasFunds}
                         isBusy={activeItemId === item.id}
-                        isHovered={hoveredAvatarId === item.id}
-                        onHoverChange={(hovered) =>
-                          setHoveredAvatarId(hovered ? item.id : null)
-                        }
                         onAction={() => void handleItemAction(item)}
                       />
                     )
@@ -571,8 +560,6 @@ function AvatarStoreCard({
   isLevelLocked,
   hasFunds,
   isBusy,
-  isHovered,
-  onHoverChange,
   onAction,
 }: {
   item: AvatarStoreItem
@@ -581,10 +568,9 @@ function AvatarStoreCard({
   isLevelLocked: boolean
   hasFunds: boolean
   isBusy: boolean
-  isHovered: boolean
-  onHoverChange: (hovered: boolean) => void
   onAction: () => void
 }) {
+  const [isHovered, setIsHovered] = useState(false)
   const actionLabel = isEquipped
     ? 'Selecionado'
     : isOwned
@@ -595,12 +581,11 @@ function AvatarStoreCard({
   return (
     <div
       tabIndex={0}
-      onMouseEnter={() => onHoverChange(true)}
-      onMouseLeave={() => onHoverChange(false)}
-      onFocus={() => onHoverChange(true)}
-      onBlur={() => onHoverChange(false)}
-      className="group relative overflow-hidden rounded-[1.7rem] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(165deg,rgba(20,27,38,0.94),rgba(11,16,24,0.96))] p-4 shadow-[0_18px_42px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 hover:border-[rgba(30,215,96,0.22)]"
-      style={{ contentVisibility: 'auto', containIntrinsicSize: '320px' }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      className="group relative overflow-hidden rounded-[1.7rem] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(165deg,rgba(20,27,38,0.94),rgba(11,16,24,0.96))] p-4 shadow-[0_18px_42px_rgba(0,0,0,0.24)] transition-[border-color,background-color] duration-200 hover:border-[rgba(30,215,96,0.22)]"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(30,215,96,0.12),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 

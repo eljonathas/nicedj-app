@@ -17,8 +17,11 @@ export interface PositionedStageUser {
 
 export interface StageViewportMetrics {
   sceneScale: number
+  audienceLeft: number
+  audienceWidth: number
   audienceBottom: number
   audienceHeight: number
+  djCenterX: number
   djBottom: number
   djCanvasWidth: number
   djCanvasHeight: number
@@ -33,6 +36,8 @@ export interface DjSpriteRenderMetrics {
   left: number
   top: number
 }
+
+export type StageLayoutMode = 'default' | 'compact' | 'hero'
 
 type AvatarSpriteVariant = 'normal' | 'b' | 'dj'
 
@@ -65,6 +70,18 @@ type DjSpriteConfig = {
   height: number
 }
 
+type StageImageBounds = {
+  scale: number
+  offsetX: number
+  offsetY: number
+  crowdLeft: number
+  crowdRight: number
+  crowdTop: number
+  crowdBottom: number
+  djCenterX: number
+  djFeetY: number
+}
+
 const DEFAULT_AUDIENCE_SPRITE = '/sprites/free_15/free/base01.png'
 
 export const MAX_STAGE_CHARACTERS = 150
@@ -85,6 +102,8 @@ export const AUDIENCE_BOTTOM = 200
 export const LEGACY_STAGE_SCENE_HEIGHT =
   AUDIENCE_BOTTOM + AUDIENCE_CANVAS_HEIGHT
 export const DESKTOP_STAGE_REFERENCE_WIDTH = 1176
+export const STAGE_BACKGROUND_WIDTH = 1600
+export const STAGE_BACKGROUND_HEIGHT = 900
 
 const GRID_ROWS = 22
 const GRID_CELL_SIZE = 10
@@ -95,6 +114,15 @@ const GRID_MAX_COLUMNS = 250
 const WIDE_SCREEN_LAYOUT_GROWTH_RATE = 0.58
 const WIDE_SCREEN_SCALE_BOOST = 0.18
 const WIDE_SCREEN_CURVE_DIVISOR = 520
+// Author-time anchors measured against the original 1600x900 stage artwork.
+const DEFAULT_STAGE_IMAGE_BOUNDS = {
+  crowdLeft: 300,
+  crowdRight: 1260,
+  crowdTop: 480,
+  crowdBottom: 645,
+  djCenterX: 800,
+  djFeetY: 850,
+} as const
 
 const DJ_DEFAULT_CONFIG: DjSpriteConfig = {
   x: 85,
@@ -129,19 +157,84 @@ const STAFF_ROLES = new Set([
 export function resolveStageViewportMetrics(
   viewportWidth: number,
   viewportHeight: number,
+  layoutMode: StageLayoutMode = 'default',
 ): StageViewportMetrics {
   const wideViewportBoost = resolveWideViewportBoost(viewportWidth)
+  const narrowViewportTightness =
+    layoutMode === 'default' ? 0 : resolveNarrowViewportTightness(viewportWidth)
   const widthScale =
     viewportWidth > 0 ? Math.min(1, viewportWidth / DJ_CANVAS_WIDTH) : 1
   const heightScaleLimit =
     viewportHeight > 0 ? viewportHeight / LEGACY_STAGE_SCENE_HEIGHT : 1
-  const sceneScale = Math.min(heightScaleLimit, widthScale * wideViewportBoost)
+
+  if (layoutMode === 'hero') {
+    if (viewportWidth < 768) {
+      const sceneScale = clamp(
+        Math.min(
+          viewportWidth > 0 ? viewportWidth / 420 : 1,
+          viewportHeight > 0 ? viewportHeight / 320 : 1,
+        ),
+        0.74,
+        0.92,
+      )
+
+      return {
+        sceneScale,
+        audienceLeft: 0,
+        audienceWidth: 0,
+        audienceBottom: 0,
+        audienceHeight: 0,
+        djCenterX: viewportWidth / 2,
+        djBottom: Math.max(6, viewportHeight * 0.04),
+        djCanvasWidth: DJ_CANVAS_WIDTH * sceneScale,
+        djCanvasHeight: DJ_CANVAS_HEIGHT * sceneScale,
+      }
+    }
+
+    const heroZoom = resolveHeroStageZoom(viewportWidth)
+    const widthDrivenScale = clamp(
+      heroZoom * 0.9 + narrowViewportTightness * 0.04,
+      1.14,
+      1.32,
+    )
+    const heightDrivenScale = Math.min(1.34, heightScaleLimit + 0.5)
+    const sceneScale = Math.max(
+      1.08,
+      Math.min(widthDrivenScale, heightDrivenScale),
+    )
+
+    return {
+      sceneScale,
+      audienceLeft: 0,
+      audienceWidth: 0,
+      audienceBottom:
+        AUDIENCE_BOTTOM * sceneScale * (0.56 - narrowViewportTightness * 0.03),
+      audienceHeight: AUDIENCE_CANVAS_HEIGHT * sceneScale * 0.8,
+      djCenterX: viewportWidth / 2,
+      djBottom:
+        DJ_BOOTH_BOTTOM * sceneScale * (0.38 - narrowViewportTightness * 0.04),
+      djCanvasWidth: DJ_CANVAS_WIDTH * sceneScale,
+      djCanvasHeight: DJ_CANVAS_HEIGHT * sceneScale,
+    }
+  }
+
+  const sceneScale = Math.min(
+    heightScaleLimit,
+    widthScale * wideViewportBoost * (1 + narrowViewportTightness * 0.04),
+  )
+  const imageBounds = resolveDefaultStageImageBounds(
+    viewportWidth,
+    viewportHeight,
+  )
 
   return {
     sceneScale,
-    audienceBottom: AUDIENCE_BOTTOM * sceneScale,
-    audienceHeight: AUDIENCE_CANVAS_HEIGHT * sceneScale,
-    djBottom: DJ_BOOTH_BOTTOM * sceneScale,
+    audienceLeft: imageBounds.crowdLeft,
+    audienceWidth: imageBounds.crowdRight - imageBounds.crowdLeft,
+    audienceBottom: Math.max(0, viewportHeight - imageBounds.crowdBottom),
+    audienceHeight: Math.max(0, imageBounds.crowdBottom - imageBounds.crowdTop),
+    djCenterX: imageBounds.djCenterX,
+    djBottom: Math.max(0, viewportHeight - imageBounds.djFeetY),
     djCanvasWidth: DJ_CANVAS_WIDTH * sceneScale,
     djCanvasHeight: DJ_CANVAS_HEIGHT * sceneScale,
   }
@@ -151,12 +244,16 @@ export function buildCrowdLayout(
   users: StageUser[],
   currentUserId: string | null,
   canvasWidth: number,
+  layoutMode: StageLayoutMode = 'default',
 ): PositionedStageUser[] {
   if (users.length === 0) {
     return []
   }
 
-  const grid = new AudienceGrid(resolveGridColumns(canvasWidth))
+  const grid = new AudienceGrid(
+    resolveGridColumns(canvasWidth, layoutMode),
+    layoutMode,
+  )
 
   for (const user of users.slice(0, MAX_STAGE_CHARACTERS)) {
     grid.addUser({
@@ -227,9 +324,16 @@ export function extractAvatarId(avatar: string | null) {
   return filename.replace(/\.(png|webp|jpg|jpeg)$/i, '').toLowerCase()
 }
 
-export function resolveStageLayoutWidth(viewportWidth: number) {
+export function resolveStageLayoutWidth(
+  viewportWidth: number,
+  layoutMode: StageLayoutMode = 'default',
+) {
   if (!Number.isFinite(viewportWidth) || viewportWidth <= 0) {
     return AUDIENCE_CANVAS_BASE_WIDTH
+  }
+
+  if (layoutMode === 'hero') {
+    return Math.round(viewportWidth * resolveHeroStageZoom(viewportWidth))
   }
 
   if (viewportWidth <= DESKTOP_STAGE_REFERENCE_WIDTH) {
@@ -241,6 +345,20 @@ export function resolveStageLayoutWidth(viewportWidth: number) {
     DESKTOP_STAGE_REFERENCE_WIDTH +
     overflowWidth * WIDE_SCREEN_LAYOUT_GROWTH_RATE
   )
+}
+
+export function resolveHeroBackgroundZoom(viewportWidth: number) {
+  if (!Number.isFinite(viewportWidth) || viewportWidth <= 0) {
+    return 1
+  }
+
+  if (viewportWidth < 768) {
+    const clampedWidth = clamp(viewportWidth, 320, 520)
+    const progress = (clampedWidth - 320) / 200
+    return clamp(2 - progress * 0.22, 1.78, 2.04)
+  }
+
+  return resolveHeroStageZoom(viewportWidth)
 }
 
 function resolveAvatarSpriteSheet(
@@ -265,17 +383,30 @@ function resolveAvatarSpriteSheet(
   return `${basePath}${variant}${extension}`
 }
 
-function resolveGridColumns(canvasWidth: number) {
+function resolveGridColumns(canvasWidth: number, layoutMode: StageLayoutMode) {
   const safeWidth =
     Number.isFinite(canvasWidth) && canvasWidth > 0
       ? canvasWidth
       : AUDIENCE_CANVAS_BASE_WIDTH
   const widthRatio = safeWidth / AUDIENCE_CANVAS_BASE_WIDTH
-  return clamp(
-    Math.floor(GRID_BASE_COLUMNS * widthRatio),
-    GRID_MIN_COLUMNS,
-    GRID_MAX_COLUMNS,
-  )
+  const nextColumns = Math.floor(GRID_BASE_COLUMNS * widthRatio)
+
+  if (layoutMode === 'compact' || layoutMode === 'hero') {
+    const minColumns = layoutMode === 'hero' ? 48 : 56
+    const maxNarrowColumns = layoutMode === 'hero' ? 92 : 104
+    const minWideColumns = layoutMode === 'hero' ? 84 : 92
+    const maxWideColumns = layoutMode === 'hero' ? 156 : 168
+
+    if (safeWidth < 420) {
+      return clamp(nextColumns, minColumns, maxNarrowColumns)
+    }
+
+    if (safeWidth < 760) {
+      return clamp(nextColumns, minWideColumns, maxWideColumns)
+    }
+  }
+
+  return clamp(nextColumns, GRID_MIN_COLUMNS, GRID_MAX_COLUMNS)
 }
 
 function calculatePositionFromGrid(
@@ -322,12 +453,14 @@ class AudienceGrid {
   readonly cellSize = GRID_CELL_SIZE
   readonly backScale = GRID_BACK_SCALE
   readonly columns: number
+  readonly layoutMode: StageLayoutMode
   userMap: Partial<Record<string, GridUser>> = {}
   priorityGrid: number[][] = []
   zones: GridZone[] = []
 
-  constructor(columns: number) {
+  constructor(columns: number, layoutMode: StageLayoutMode) {
     this.columns = columns
+    this.layoutMode = layoutMode
     this.clear()
   }
 
@@ -355,10 +488,16 @@ class AudienceGrid {
       w: 1,
       h: 1,
     })
+    const spotlightInset =
+      this.layoutMode === 'default'
+        ? 70
+        : this.layoutMode === 'hero'
+          ? clamp(Math.floor(this.columns * 0.22), 10, 28)
+          : clamp(Math.floor(this.columns * 0.18), 12, 36)
     this.addZone(6, {
-      x: 70,
+      x: spotlightInset,
       y: this.rows - 5,
-      w: this.columns - 140,
+      w: Math.max(8, this.columns - spotlightInset * 2),
       h: 4,
     })
 
@@ -639,6 +778,40 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
+function resolveDefaultStageImageBounds(
+  viewportWidth: number,
+  viewportHeight: number,
+): StageImageBounds {
+  const safeWidth =
+    Number.isFinite(viewportWidth) && viewportWidth > 0
+      ? viewportWidth
+      : DESKTOP_STAGE_REFERENCE_WIDTH
+  const safeHeight =
+    Number.isFinite(viewportHeight) && viewportHeight > 0
+      ? viewportHeight
+      : LEGACY_STAGE_SCENE_HEIGHT
+  const scale = Math.max(
+    safeWidth / STAGE_BACKGROUND_WIDTH,
+    safeHeight / STAGE_BACKGROUND_HEIGHT,
+  )
+  const renderedWidth = STAGE_BACKGROUND_WIDTH * scale
+  const renderedHeight = STAGE_BACKGROUND_HEIGHT * scale
+  const offsetX = (safeWidth - renderedWidth) / 2
+  const offsetY = safeHeight - renderedHeight
+
+  return {
+    scale,
+    offsetX,
+    offsetY,
+    crowdLeft: offsetX + DEFAULT_STAGE_IMAGE_BOUNDS.crowdLeft * scale,
+    crowdRight: offsetX + DEFAULT_STAGE_IMAGE_BOUNDS.crowdRight * scale,
+    crowdTop: offsetY + DEFAULT_STAGE_IMAGE_BOUNDS.crowdTop * scale,
+    crowdBottom: offsetY + DEFAULT_STAGE_IMAGE_BOUNDS.crowdBottom * scale,
+    djCenterX: offsetX + DEFAULT_STAGE_IMAGE_BOUNDS.djCenterX * scale,
+    djFeetY: offsetY + DEFAULT_STAGE_IMAGE_BOUNDS.djFeetY * scale,
+  }
+}
+
 function resolveWideViewportBoost(viewportWidth: number) {
   if (
     !Number.isFinite(viewportWidth) ||
@@ -653,4 +826,32 @@ function resolveWideViewportBoost(viewportWidth: number) {
     WIDE_SCREEN_SCALE_BOOST *
       (1 - Math.exp(-overflowWidth / WIDE_SCREEN_CURVE_DIVISOR))
   )
+}
+
+function resolveNarrowViewportTightness(viewportWidth: number) {
+  if (!Number.isFinite(viewportWidth) || viewportWidth >= 520) {
+    return 0
+  }
+
+  return clamp((520 - viewportWidth) / 220, 0, 1)
+}
+
+function resolveHeroStageZoom(viewportWidth: number) {
+  if (!Number.isFinite(viewportWidth) || viewportWidth <= 0) {
+    return 1
+  }
+
+  if (viewportWidth < 400) {
+    return 1.42
+  }
+
+  if (viewportWidth < 520) {
+    return 1.34
+  }
+
+  if (viewportWidth < DESKTOP_STAGE_REFERENCE_WIDTH) {
+    return 1.18
+  }
+
+  return 1
 }

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { emitAuthInvalidated, isInvalidAccessMessage } from '../lib/authEvents'
 import { useChatStore } from '../stores/chatStore'
 import { useAuthStore } from '../stores/authStore'
 import { useEconomyStore } from '../stores/economyStore'
@@ -55,7 +56,10 @@ export function useWsEvents(wsClient: WsClient | null) {
         setUsers(payload.users || [])
         syncQueue(payload.queue || [])
         setPlayback(payload.playback ?? null)
-        if ((payload.playback?.trackId ?? null) !== (currentPlayback?.trackId ?? null)) {
+        if (
+          (payload.playback?.trackId ?? null) !==
+          (currentPlayback?.trackId ?? null)
+        ) {
           setClientVote(null)
           setClientGrab(false, null)
         }
@@ -134,6 +138,11 @@ export function useWsEvents(wsClient: WsClient | null) {
       wsClient.on('error', (payload: any) => {
         if (!payload?.message) return
 
+        if (isInvalidAccessMessage(payload.message)) {
+          emitAuthInvalidated()
+          return
+        }
+
         setErrorMessage(payload.message)
         window.setTimeout(() => {
           if (useRoomStore.getState().errorMessage === payload.message) {
@@ -177,7 +186,7 @@ export function useWsEvents(wsClient: WsClient | null) {
         if (payload?.type === 'grab') {
           setClientGrab(
             Boolean(payload.active),
-            payload.active ? payload.playlistId ?? null : null,
+            payload.active ? (payload.playlistId ?? null) : null,
           )
           return
         }

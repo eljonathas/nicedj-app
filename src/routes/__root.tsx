@@ -5,8 +5,9 @@ import {
   useLocation,
   useNavigate,
 } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
+  AlertTriangle,
   Disc3,
   LayoutGrid,
   ListMusic,
@@ -17,8 +18,11 @@ import {
   ShoppingBag,
   User2,
   Users,
+  Wifi,
+  WifiOff,
 } from 'lucide-react'
 import { FloatingAppPanel } from '../components/layout/FloatingAppPanel'
+import { subscribeToAuthInvalidated } from '../lib/authEvents'
 import { hasRoomManagementAccess } from '../lib/roles'
 import { useAuthStore } from '../stores/authStore'
 import { useRoomStore } from '../stores/roomStore'
@@ -40,8 +44,48 @@ const navItems = [
   { to: '/shop', icon: ShoppingBag, label: 'Loja', floatingView: 'shop' },
 ] as const
 
+type ConnectionBannerTone = 'warning' | 'danger'
+
+type ConnectionBanner = {
+  tone: ConnectionBannerTone
+  message: string
+}
+
+type NetworkInformationLike = {
+  effectiveType?: string
+  saveData?: boolean
+  downlink?: number
+  rtt?: number
+  addEventListener?: (type: 'change', listener: () => void) => void
+  removeEventListener?: (type: 'change', listener: () => void) => void
+}
+
+function isSlowConnection(connection: NetworkInformationLike | undefined) {
+  if (!connection) {
+    return false
+  }
+
+  if (connection.saveData) {
+    return true
+  }
+
+  if (
+    connection.effectiveType === 'slow-2g' ||
+    connection.effectiveType === '2g'
+  ) {
+    return true
+  }
+
+  if (typeof connection.downlink === 'number' && connection.downlink < 1) {
+    return true
+  }
+
+  return typeof connection.rtt === 'number' && connection.rtt > 650
+}
+
 function RootLayout() {
-  const { user, logout, initialized, initialize } = useAuthStore()
+  const { user, logout, initialized, initialize, wsClient, setError } =
+    useAuthStore()
   const activeRoom = useRoomStore((s) => s.activeRoom)
   const roomUsers = useRoomStore((s) => s.users)
   const floatingPanel = useUIStore((s) => s.floatingPanel)
@@ -49,16 +93,104 @@ function RootLayout() {
   const closeFloatingPanel = useUIStore((s) => s.closeFloatingPanel)
   const navigate = useNavigate()
   const location = useLocation()
+  const [connectionBanner, setConnectionBanner] =
+    useState<ConnectionBanner | null>(null)
+  const [wsDisconnected, setWsDisconnected] = useState(false)
 
   useEffect(() => {
     initialize()
   }, [initialize])
 
   useEffect(() => {
+    return subscribeToAuthInvalidated(({ message }) => {
+      logout()
+      setError(message)
+      closeFloatingPanel()
+      useRoomStore.getState().reset()
+      navigate({ to: '/login', replace: true })
+    })
+  }, [closeFloatingPanel, logout, navigate, setError])
+
+  useEffect(() => {
     closeFloatingPanel()
   }, [closeFloatingPanel, location.pathname])
 
+  useEffect(() => {
+    setWsDisconnected(false)
+
+    if (!wsClient) {
+      return
+    }
+
+    const disconnect = wsClient.on('_disconnected', () => {
+      setWsDisconnected(true)
+    })
+    const reconnect = wsClient.on('_connected', () => {
+      setWsDisconnected(false)
+    })
+
+    return () => {
+      disconnect()
+      reconnect()
+    }
+  }, [wsClient])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const networkInfo = (navigator as Navigator & {
+      connection?: NetworkInformationLike
+    }).connection
+
+    const updateConnectionBanner = () => {
+      if (!window.navigator.onLine) {
+        setConnectionBanner({
+          tone: 'danger',
+          message: 'Sua conexão caiu. Tentando reconectar o app.',
+        })
+        return
+      }
+
+      if (wsDisconnected) {
+        setConnectionBanner({
+          tone: 'warning',
+          message: 'Reconectando à sala. Chat e sincronização podem atrasar.',
+        })
+        return
+      }
+
+      if (isSlowConnection(networkInfo)) {
+        setConnectionBanner({
+          tone: 'warning',
+          message:
+            'Sua conexão está lenta. Mensagens, votos e player podem atrasar.',
+        })
+        return
+      }
+
+      setConnectionBanner(null)
+    }
+
+    const handleNetworkChange = () => {
+      updateConnectionBanner()
+    }
+
+    updateConnectionBanner()
+    window.addEventListener('online', handleNetworkChange)
+    window.addEventListener('offline', handleNetworkChange)
+    networkInfo?.addEventListener?.('change', handleNetworkChange)
+
+    return () => {
+      window.removeEventListener('online', handleNetworkChange)
+      window.removeEventListener('offline', handleNetworkChange)
+      networkInfo?.removeEventListener?.('change', handleNetworkChange)
+    }
+  }, [wsDisconnected])
+
   const handleLogout = () => {
+    setError(null)
     logout()
     navigate({ to: '/login' })
   }
@@ -101,6 +233,29 @@ function RootLayout() {
 
   return (
     <div className="min-h-screen shell-background text-[var(--text-primary)]">
+      {connectionBanner ? (
+        <div className="pointer-events-none fixed inset-x-0 top-3 z-[80] flex justify-center px-4">
+          <div
+            className={`pointer-events-auto inline-flex max-w-[720px] items-center gap-3 rounded-full border px-4 py-2.5 text-[13px] font-medium shadow-[0_18px_34px_rgba(0,0,0,0.28)] backdrop-blur-xl ${
+              connectionBanner.tone === 'danger'
+                ? 'border-[rgba(255,107,99,0.3)] bg-[rgba(53,18,20,0.9)] text-[#ffd6d3]'
+                : 'border-[rgba(255,191,105,0.24)] bg-[rgba(44,28,12,0.88)] text-[#ffdba5]'
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {connectionBanner.tone === 'danger' ? (
+              <WifiOff className="h-4 w-4 shrink-0" />
+            ) : wsDisconnected ? (
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+            ) : (
+              <Wifi className="h-4 w-4 shrink-0" />
+            )}
+            <span>{connectionBanner.message}</span>
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex min-h-screen">
         <aside className="hidden md:sticky md:top-0 md:flex md:h-screen md:w-[82px] md:flex-col border-r border-[var(--border-light)] bg-[var(--bg-secondary)]">
           <div className="flex h-full flex-col items-center justify-between py-4">

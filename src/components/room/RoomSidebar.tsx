@@ -24,10 +24,17 @@ import {
 } from '../../lib/roles'
 import { Avatar } from '../ui/Avatar'
 
-export function UserList() {
+type RoomSidebarListVariant = 'default' | 'compact'
+
+export function UserList({
+  variant = 'default',
+}: {
+  variant?: RoomSidebarListVariant
+} = {}) {
   const users = useRoomStore((s) => s.users)
   const currentUserId = useAuthStore((s) => s.user?.id)
   const wsClient = useAuthStore((s) => s.wsClient)
+  const isCompact = variant === 'compact'
 
   const currentUser = users.find((candidate) => candidate.id === currentUserId)
   const groupedUsers = useMemo(() => {
@@ -92,8 +99,8 @@ export function UserList() {
 
   if (users.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-center px-4">
-        <div className="h-10 w-10 rounded-xl border border-[rgba(255,255,255,0.1)] bg-[rgba(16,21,30,0.95)] text-[var(--text-muted)] flex items-center justify-center mb-2.5">
+      <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+        <div className="mb-2.5 flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(255,255,255,0.1)] bg-[rgba(16,21,30,0.95)] text-[var(--text-muted)]">
           <UserRound className="h-4.5 w-4.5" />
         </div>
         <p className="text-xs font-semibold text-[var(--text-secondary)]">
@@ -104,14 +111,27 @@ export function UserList() {
   }
 
   return (
-    <div className="h-full overflow-y-auto px-2.5 py-2 space-y-3">
+    <div
+      className={`h-full overflow-y-auto ${
+        isCompact ? 'space-y-3 px-3 py-3' : 'space-y-3 px-2.5 py-2'
+      }`}
+    >
       {groupedUsers.map((section, sectionIndex) => {
         const sectionMeta = getUserPresenceGroupMeta(section.group)
         const SectionIcon = sectionMeta.icon
 
         return (
-          <section key={section.group} className="space-y-1.5">
-            <div className="sticky top-0 z-[1] flex items-center justify-between rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(9,13,21,0.88)] px-2.5 py-2 backdrop-blur-md">
+          <section
+            key={section.group}
+            className={isCompact ? 'space-y-2' : 'space-y-1.5'}
+          >
+            <div
+              className={`sticky top-0 z-[1] flex items-center justify-between backdrop-blur-md ${
+                isCompact
+                  ? 'border-b border-[rgba(255,255,255,0.08)] bg-[rgba(7,11,17,0.94)] px-0.5 py-2'
+                  : 'rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(9,13,21,0.88)] px-2.5 py-2'
+              }`}
+            >
               <div className="flex min-w-0 items-center gap-2">
                 <span
                   className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border ${sectionMeta.pillClassName}`}
@@ -130,7 +150,7 @@ export function UserList() {
               </span>
             </div>
 
-            <div className="space-y-1.5">
+            <div className={isCompact ? 'space-y-2' : 'space-y-1.5'}>
               {section.users.map((user, userIndex) => {
                 const roomRole = getRoomRoleMeta(user.role)
                 const platformRole = getPlatformRoleMeta(user.platformRole)
@@ -164,7 +184,11 @@ export function UserList() {
                       duration: 0.16,
                       delay: sectionIndex * 0.03 + userIndex * 0.015,
                     }}
-                    className={`group flex items-center gap-2 rounded-lg border px-2.5 py-2 shadow-[0_8px_18px_rgba(0,0,0,0.24)] ${
+                    className={`group flex items-center gap-2 border ${
+                      isCompact
+                        ? 'rounded-[1rem] px-3 py-2.5 shadow-none'
+                        : 'rounded-lg px-2.5 py-2 shadow-[0_8px_18px_rgba(0,0,0,0.24)]'
+                    } ${
                       roomRole.rowClassName ||
                       'border-[rgba(255,255,255,0.08)] bg-[rgba(15,20,29,0.95)]'
                     }`}
@@ -173,7 +197,7 @@ export function UserList() {
                       username={user.username}
                       src={user.avatar}
                       size="sm"
-                      className="h-7 w-7"
+                      className={isCompact ? 'h-8 w-8' : 'h-7 w-7'}
                     />
 
                     <div className="min-w-0 flex-1">
@@ -288,7 +312,11 @@ export function UserList() {
   )
 }
 
-export function DJQueue() {
+export function DJQueue({
+  variant = 'default',
+}: {
+  variant?: RoomSidebarListVariant
+} = {}) {
   const queue = useRoomStore((s) => s.queue)
   const users = useRoomStore((s) => s.users)
   const playback = useRoomStore((s) => s.playback)
@@ -296,6 +324,7 @@ export function DJQueue() {
   const wsClient = useAuthStore((s) => s.wsClient)
   const [draggedUserId, setDraggedUserId] = useState<string | null>(null)
   const [dropUserId, setDropUserId] = useState<string | null>(null)
+  const isCompact = variant === 'compact'
 
   const getUser = (userId: string) => users.find((user) => user.id === userId)
   const currentUser = users.find((candidate) => candidate.id === currentUserId)
@@ -330,8 +359,8 @@ export function DJQueue() {
 
   if (queue.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-center px-4">
-        <div className="h-10 w-10 rounded-xl border border-[rgba(255,255,255,0.1)] bg-[rgba(16,21,30,0.95)] text-[var(--text-muted)] flex items-center justify-center mb-2.5">
+      <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+        <div className="mb-2.5 flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(255,255,255,0.1)] bg-[rgba(16,21,30,0.95)] text-[var(--text-muted)]">
           <Mic2 className="h-4.5 w-4.5" />
         </div>
         <p className="text-xs font-semibold text-[var(--text-secondary)]">
@@ -342,9 +371,17 @@ export function DJQueue() {
   }
 
   return (
-    <div className="h-full overflow-y-auto px-2.5 py-2 space-y-1.5">
+    <div
+      className={`h-full overflow-y-auto ${
+        isCompact ? 'space-y-2 px-3 py-3' : 'space-y-1.5 px-2.5 py-2'
+      }`}
+    >
       {canManageQueue && (
-        <p className="px-1 text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
+        <p
+          className={`text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)] ${
+            isCompact ? 'px-0.5' : 'px-1'
+          }`}
+        >
           Arraste para reorganizar a fila
         </p>
       )}
@@ -387,7 +424,11 @@ export function DJQueue() {
               event.preventDefault()
               handleDrop(userId, index)
             }}
-            className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 shadow-[0_8px_18px_rgba(0,0,0,0.24)] ${
+            className={`flex items-center gap-2 border ${
+              isCompact
+                ? 'rounded-[1rem] px-3 py-2.5 shadow-none'
+                : 'rounded-lg px-2.5 py-2 shadow-[0_8px_18px_rgba(0,0,0,0.24)]'
+            } ${
               isDropTarget
                 ? 'border-[rgba(176,107,255,0.32)] bg-[rgba(42,27,61,0.92)]'
                 : 'border-[rgba(255,255,255,0.08)] bg-[rgba(15,20,29,0.95)]'
@@ -413,7 +454,7 @@ export function DJQueue() {
               username={username}
               src={user?.avatar}
               size="sm"
-              className="h-7 w-7"
+              className={isCompact ? 'h-8 w-8' : 'h-7 w-7'}
             />
 
             <div className="min-w-0 flex-1">

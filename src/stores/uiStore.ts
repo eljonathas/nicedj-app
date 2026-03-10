@@ -2,6 +2,7 @@ import { create } from 'zustand'
 
 interface UIState {
   isMobile: boolean
+  isRoomCompactLayout: boolean
   sidebarOpen: boolean
   activePanel: 'chat' | 'users' | 'queue'
   modalOpen: string | null
@@ -12,6 +13,7 @@ interface UIState {
   } | null
 
   setIsMobile: (value: boolean) => void
+  setRoomCompactLayout: (value: boolean) => void
   toggleSidebar: () => void
   setSidebarOpen: (value: boolean) => void
   setActivePanel: (panel: 'chat' | 'users' | 'queue') => void
@@ -27,6 +29,7 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+  isRoomCompactLayout: false,
   sidebarOpen: true,
   activePanel: 'chat',
   modalOpen: null,
@@ -34,6 +37,7 @@ export const useUIStore = create<UIState>((set) => ({
   floatingPanel: null,
 
   setIsMobile: (value) => set({ isMobile: value }),
+  setRoomCompactLayout: (value) => set({ isRoomCompactLayout: value }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarOpen: (value) => set({ sidebarOpen: value }),
   setActivePanel: (panel) => set({ activePanel: panel }),
