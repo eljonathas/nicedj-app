@@ -6,6 +6,7 @@ import {
   Gem,
   Loader2,
   Lock,
+  Package,
   ShoppingBag,
   Sparkles,
 } from 'lucide-react'
@@ -41,8 +42,8 @@ export function ShopPage() {
   } = useEconomyStore()
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
   const [activeSectionId, setActiveSectionId] = useState<
-    'free' | 'level' | 'premium' | null
-  >('free')
+    'inventory' | 'free' | 'level' | 'premium' | null
+  >('inventory')
   const [visibleItemCount, setVisibleItemCount] = useState(ITEM_BATCH_SIZE)
   const [visibleLevelGroupCount, setVisibleLevelGroupCount] = useState(
     LEVEL_GROUP_BATCH_SIZE,
@@ -110,6 +111,17 @@ export function ShopPage() {
     () => levelGroups.slice(0, visibleLevelGroupCount),
     [levelGroups, visibleLevelGroupCount],
   )
+  const inventoryItems = useMemo(() => {
+    if (activeSectionId !== 'inventory') return []
+
+    return allItems.filter(
+      (item) => item.type === 'free' || ownedAvatarIdsSet.has(item.id),
+    )
+  }, [activeSectionId, allItems, ownedAvatarIdsSet])
+  const visibleInventoryItems = useMemo(
+    () => inventoryItems.slice(0, visibleItemCount),
+    [inventoryItems, visibleItemCount],
+  )
   const levelProgress = user
     ? getLevelProgress(user.level, user.xp)
     : { progressPct: 0, xpIntoLevel: 0, xpForNextLevel: 100 }
@@ -117,7 +129,10 @@ export function ShopPage() {
   useEffect(() => {
     if (sections.length === 0) return
 
-    if (!sections.some((section) => section.id === activeSectionId)) {
+    if (
+      activeSectionId !== 'inventory' &&
+      !sections.some((section) => section.id === activeSectionId)
+    ) {
       setActiveSectionId(
         sections.find((section) => section.id === 'free')?.id ??
         sections[0]?.id ??
@@ -133,7 +148,10 @@ export function ShopPage() {
 
   useEffect(() => {
     const node = loadMoreRef.current
-    if (!node || !activeSection) return
+    if (!node) return
+
+    const isInventory = activeSectionId === 'inventory'
+    if (!isInventory && !activeSection) return
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -141,7 +159,14 @@ export function ShopPage() {
           return
         }
 
-        if (activeSection.id === 'level') {
+        if (isInventory) {
+          setVisibleItemCount((current) =>
+            Math.min(current + ITEM_BATCH_SIZE, inventoryItems.length),
+          )
+          return
+        }
+
+        if (activeSection!.id === 'level') {
           setVisibleLevelGroupCount((current) =>
             Math.min(current + LEVEL_GROUP_BATCH_SIZE, levelGroups.length),
           )
@@ -149,7 +174,7 @@ export function ShopPage() {
         }
 
         setVisibleItemCount((current) =>
-          Math.min(current + ITEM_BATCH_SIZE, activeSection.items.length),
+          Math.min(current + ITEM_BATCH_SIZE, activeSection!.items.length),
         )
       },
       { rootMargin: '320px 0px' },
@@ -157,7 +182,7 @@ export function ShopPage() {
 
     observer.observe(node)
     return () => observer.disconnect()
-  }, [activeSection, levelGroups.length])
+  }, [activeSection, activeSectionId, inventoryItems.length, levelGroups.length])
 
   useEffect(() => {
     if (pendingLevelScroll === null) return
@@ -277,8 +302,45 @@ export function ShopPage() {
         <div className="flex flex-col gap-6">
           <div className="overflow-hidden rounded-[1.8rem] border border-[var(--border-light)] bg-[linear-gradient(165deg,rgba(18,25,36,0.94),rgba(10,15,22,0.96))] p-3 shadow-[0_20px_44px_rgba(0,0,0,0.22)]">
             <div className="flex gap-2 overflow-x-auto pb-1">
+              <button
+                type="button"
+                onClick={() => setActiveSectionId('inventory')}
+                className={[
+                  'group flex min-w-[158px] shrink-0 items-center justify-between gap-3 rounded-[1.2rem] border px-4 py-3 text-left transition-all',
+                  activeSectionId === 'inventory'
+                    ? 'border-[rgba(30,215,96,0.24)] bg-[rgba(14,24,18,0.92)] text-white shadow-[0_14px_24px_rgba(8,18,12,0.24)]'
+                    : 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] text-[var(--text-secondary)] hover:border-[rgba(255,255,255,0.14)] hover:text-white',
+                ].join(' ')}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-3.5 w-3.5" />
+                    <span className="truncate text-[13px] font-semibold uppercase tracking-[0.12em]">
+                      Inventário
+                    </span>
+                  </div>
+                  <p
+                    className={[
+                      'mt-1 truncate text-[11px]',
+                      'text-[var(--text-muted)]',
+                    ].join(' ')}
+                  >
+                    Seus avatares
+                  </p>
+                </div>
+                <span
+                  className={[
+                    'rounded-full px-2.5 py-1 text-[10px] font-semibold',
+                    activeSectionId === 'inventory'
+                      ? 'bg-[rgba(255,255,255,0.06)] text-white'
+                      : 'bg-[rgba(255,255,255,0.04)] text-[var(--text-muted)]',
+                  ].join(' ')}
+                >
+                  {ownedAvatarIds.length}
+                </span>
+              </button>
               {sections.map((section) => {
-                const isActive = activeSection?.id === section.id
+                const isActive = activeSectionId === section.id
                 const isPremium = section.id === 'premium'
 
                 return (
@@ -348,7 +410,62 @@ export function ShopPage() {
             </div>
           </div>
 
-          {activeSection ? (
+          {activeSectionId === 'inventory' ? (
+            <motion.section
+              key="inventory"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18 }}
+            >
+              <div className="mb-4 flex items-end justify-between gap-3">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                    <span className="h-2 w-2 rounded-full bg-[var(--accent)]" />
+                    Seus avatares
+                  </div>
+                  <h2 className="mt-3 text-xl font-bold text-white">
+                    Meu Inventário
+                  </h2>
+                </div>
+                <div className="text-right">
+                  <p className="text-[12px] text-[var(--text-secondary)]">
+                    {visibleInventoryItems.length} de {inventoryItems.length} avatares
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {visibleInventoryItems.map((item) => {
+                  const isEquipped = equippedAvatarId === item.id
+
+                  return (
+                    <InventoryCard
+                      key={item.id}
+                      item={item}
+                      isEquipped={isEquipped}
+                      isBusy={activeItemId === item.id}
+                      onEquip={() => {
+                        setActiveItemId(item.id)
+                        void equip(item.id).finally(() =>
+                          setActiveItemId(null),
+                        )
+                      }}
+                    />
+                  )
+                })}
+              </div>
+
+              {inventoryItems.length > visibleInventoryItems.length ? (
+                <div
+                  ref={loadMoreRef}
+                  className="mt-6 h-12 w-full"
+                  aria-hidden="true"
+                >
+                  <div className="mx-auto h-1.5 w-24 rounded-full bg-[rgba(255,255,255,0.06)]" />
+                </div>
+              ) : null}
+            </motion.section>
+          ) : activeSection ? (
             <motion.section
               key={activeSection.id}
               initial={{ opacity: 0, y: 10 }}
@@ -665,6 +782,78 @@ const AvatarStoreCard = memo(function AvatarStoreCard({
           }
         >
           {actionLabel}
+        </Button>
+      </div>
+    </div>
+  )
+})
+
+const InventoryCard = memo(function InventoryCard({
+  item,
+  isEquipped,
+  isBusy,
+  onEquip,
+}: {
+  item: AvatarStoreItem
+  isEquipped: boolean
+  isBusy: boolean
+  onEquip: () => void
+}) {
+  const [isHovered, setIsHovered] = useState(false)
+
+  return (
+    <div
+      tabIndex={0}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      className={[
+        'group relative overflow-hidden rounded-[1.7rem] border p-4 transition-[border-color,background-color] duration-200',
+        isEquipped
+          ? 'border-[rgba(30,215,96,0.22)] bg-[linear-gradient(165deg,rgba(14,24,18,0.94),rgba(11,16,24,0.96))] shadow-[0_12px_28px_rgba(0,0,0,0.18)]'
+          : 'border-[rgba(255,255,255,0.08)] bg-[linear-gradient(165deg,rgba(20,27,38,0.94),rgba(11,16,24,0.96))] shadow-[0_12px_28px_rgba(0,0,0,0.18)] hover:border-[rgba(30,215,96,0.22)]',
+      ].join(' ')}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 280px', backfaceVisibility: 'hidden', transform: 'translateZ(0)' }}
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(30,215,96,0.12),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+      <div className="relative flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            {item.collection}
+          </p>
+          <h3 className="mt-1 text-lg font-bold text-white">{item.name}</h3>
+        </div>
+
+        {isEquipped ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(30,215,96,0.18)] bg-[rgba(11,29,19,0.74)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--accent-hover)]">
+            <Check className="h-3.5 w-3.5" />
+            Equipado
+          </span>
+        ) : null}
+      </div>
+
+      <div className="relative mt-3 flex min-h-[140px] items-center justify-center overflow-hidden rounded-[1.45rem] bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.12),rgba(14,20,30,0.18)_36%,transparent_72%)] px-2 py-2" style={{ transform: 'translateZ(0)' }}>
+        <SpriteAvatar
+          src={item.url}
+          alt={item.name}
+          size={112}
+          animate={isHovered}
+          lazy
+          className="shadow-[0_16px_20px_rgba(0,0,0,0.44)] rounded-lg"
+        />
+      </div>
+
+      <div className="relative mt-3 flex items-center justify-end">
+        <Button
+          size="sm"
+          variant={isEquipped ? 'secondary' : 'primary'}
+          onClick={onEquip}
+          isLoading={isBusy}
+          disabled={isBusy || isEquipped}
+        >
+          {isEquipped ? 'Selecionado' : 'Usar avatar'}
         </Button>
       </div>
     </div>
