@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 
 interface SpriteAvatarProps {
   src: string
@@ -21,7 +21,7 @@ export function SpriteAvatar({
   fps = 14,
   lazy = false,
 }: SpriteAvatarProps) {
-  const [frame, setFrame] = useState(0)
+  const imgRef = useRef<HTMLImageElement | null>(null)
   const rafRef = useRef<number | null>(null)
   const startedAtRef = useRef<number | null>(null)
 
@@ -34,11 +34,15 @@ export function SpriteAvatar({
     startedAtRef.current = null
 
     if (!animate) {
-      setFrame(0)
+      if (imgRef.current) {
+        imgRef.current.style.transform = 'translate3d(0px, 0, 0)'
+      }
       return
     }
 
     const frameDuration = 1000 / fps
+    let lastFrame = -1
+
     const tick = (timestamp: number) => {
       if (startedAtRef.current === null) {
         startedAtRef.current = timestamp
@@ -47,7 +51,13 @@ export function SpriteAvatar({
       const elapsed = timestamp - startedAtRef.current
       const nextFrame = Math.floor(elapsed / frameDuration) % frameCount
 
-      setFrame((current) => (current === nextFrame ? current : nextFrame))
+      if (nextFrame !== lastFrame) {
+        lastFrame = nextFrame
+        if (imgRef.current) {
+          imgRef.current.style.transform = `translate3d(-${nextFrame * size}px, 0, 0)`
+        }
+      }
+
       rafRef.current = window.requestAnimationFrame(tick)
     }
 
@@ -59,7 +69,7 @@ export function SpriteAvatar({
         rafRef.current = null
       }
     }
-  }, [animate, fps, frameCount])
+  }, [animate, fps, frameCount, size])
 
   return (
     <div
@@ -70,9 +80,12 @@ export function SpriteAvatar({
         width: `${size}px`,
         height: `${size}px`,
         backgroundColor: 'rgba(255,255,255,0.04)',
+        transform: 'translateZ(0)',
+        backfaceVisibility: 'hidden',
       }}
     >
       <img
+        ref={imgRef}
         src={src}
         alt=""
         aria-hidden="true"
@@ -84,8 +97,7 @@ export function SpriteAvatar({
           width: `${size * frameCount}px`,
           height: `${size}px`,
           maxWidth: 'none',
-          transform: `translate3d(-${frame * size}px, 0, 0)`,
-          willChange: animate ? 'transform' : undefined,
+          transform: 'translate3d(0px, 0, 0)',
         }}
       />
     </div>

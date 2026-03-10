@@ -9,7 +9,7 @@ import {
   ShoppingBag,
   Sparkles,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { SpriteAvatar } from '../components/ui/SpriteAvatar'
 import { getLevelProgress } from '../lib/progression'
@@ -51,7 +51,7 @@ export function ShopPage() {
     null,
   )
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
-  const levelGroupRefs = useRef<Record<number, HTMLDivElement | null>>({})
+  const levelGroupRefs = useRef<Record<number, HTMLElement | null>>({})
 
   useEffect(() => {
     if (!user) return
@@ -120,8 +120,8 @@ export function ShopPage() {
     if (!sections.some((section) => section.id === activeSectionId)) {
       setActiveSectionId(
         sections.find((section) => section.id === 'free')?.id ??
-          sections[0]?.id ??
-          null,
+        sections[0]?.id ??
+        null,
       )
     }
   }, [activeSectionId, sections])
@@ -383,9 +383,9 @@ export function ShopPage() {
                   <p className="text-[12px] text-[var(--text-secondary)]">
                     {activeSection.id === 'level'
                       ? `${visibleLevelGroups.reduce(
-                          (total, group) => total + group.items.length,
-                          0,
-                        )} de ${activeSection.items.length} avatares`
+                        (total, group) => total + group.items.length,
+                        0,
+                      )} de ${activeSection.items.length} avatares`
                       : `${visibleItems.length} de ${activeSection.items.length} avatares`}
                   </p>
                 </div>
@@ -511,8 +511,8 @@ export function ShopPage() {
 
               {(activeSection.id === 'level' &&
                 visibleLevelGroups.length < levelGroups.length) ||
-              (activeSection.id !== 'level' &&
-                activeSection.items.length > visibleItems.length) ? (
+                (activeSection.id !== 'level' &&
+                  activeSection.items.length > visibleItems.length) ? (
                 <div
                   ref={loadMoreRef}
                   className="mt-6 h-12 w-full"
@@ -553,7 +553,7 @@ function WalletStat({
   )
 }
 
-function AvatarStoreCard({
+const AvatarStoreCard = memo(function AvatarStoreCard({
   item,
   isOwned,
   isEquipped,
@@ -585,7 +585,8 @@ function AvatarStoreCard({
       onMouseLeave={() => setIsHovered(false)}
       onFocus={() => setIsHovered(true)}
       onBlur={() => setIsHovered(false)}
-      className="group relative overflow-hidden rounded-[1.7rem] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(165deg,rgba(20,27,38,0.94),rgba(11,16,24,0.96))] p-4 shadow-[0_18px_42px_rgba(0,0,0,0.24)] transition-[border-color,background-color] duration-200 hover:border-[rgba(30,215,96,0.22)]"
+      className="group relative overflow-hidden rounded-[1.7rem] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(165deg,rgba(20,27,38,0.94),rgba(11,16,24,0.96))] p-4 shadow-[0_12px_28px_rgba(0,0,0,0.18)] transition-[border-color,background-color] duration-200 hover:border-[rgba(30,215,96,0.22)]"
+      style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 340px', backfaceVisibility: 'hidden', transform: 'translateZ(0)' }}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(30,215,96,0.12),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
@@ -609,14 +610,14 @@ function AvatarStoreCard({
         ) : null}
       </div>
 
-      <div className="relative mt-3 flex min-h-[176px] items-center justify-center overflow-hidden rounded-[1.45rem] bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.12),rgba(14,20,30,0.18)_36%,transparent_72%)] px-2 py-2">
+      <div className="relative mt-3 flex min-h-[176px] items-center justify-center overflow-hidden rounded-[1.45rem] bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.12),rgba(14,20,30,0.18)_36%,transparent_72%)] px-2 py-2" style={{ transform: 'translateZ(0)' }}>
         <SpriteAvatar
           src={item.url}
           alt={item.name}
           size={132}
           animate={isHovered}
           lazy
-          className="drop-shadow-[0_20px_24px_rgba(0,0,0,0.48)]"
+          className="shadow-[0_16px_20px_rgba(0,0,0,0.44)] rounded-lg"
         />
 
         {isLevelLocked ? (
@@ -636,11 +637,10 @@ function AvatarStoreCard({
           ) : (
             <div className="flex items-center gap-2 text-[13px] font-semibold text-white">
               <CurrencyIcon
-                className={`h-4 w-4 ${
-                  item.currency === 'diamonds'
-                    ? 'text-[#7de0ff]'
-                    : 'text-[#ffd166]'
-                }`}
+                className={`h-4 w-4 ${item.currency === 'diamonds'
+                  ? 'text-[#7de0ff]'
+                  : 'text-[#ffd166]'
+                  }`}
               />
               <span>{item.price}</span>
             </div>
@@ -669,4 +669,4 @@ function AvatarStoreCard({
       </div>
     </div>
   )
-}
+})
