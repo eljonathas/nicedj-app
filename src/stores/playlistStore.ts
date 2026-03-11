@@ -31,12 +31,61 @@ interface Playlist {
   updatedAt: string
 }
 
+type SpotifyImportItem = {
+  index: number
+  spotifyTrackId: string | null
+  title: string
+  artists: string[]
+  durationMs: number
+  status:
+    | 'imported'
+    | 'duplicate'
+    | 'unresolved'
+    | 'failed'
+    | 'budget_exhausted'
+  message: string | null
+  matchedSourceId: string | null
+  matchedTitle: string | null
+  matchedArtist: string | null
+}
+
+export type SpotifyImportJob = {
+  id: string
+  status: 'queued' | 'running' | 'completed' | 'partial' | 'failed' | 'cancelled'
+  sourceUrl: string
+  spotifyPlaylistId: string | null
+  spotifyPlaylistName: string | null
+  playlistId: string | null
+  playlistName: string | null
+  sourceTotalTracks: number
+  totalTracks: number
+  processedTracks: number
+  importedTracks: number
+  duplicateTracks: number
+  unresolvedTracks: number
+  failedTracks: number
+  budgetExhaustedTracks: number
+  youtubeLookupsUsed: number
+  maxTrackCount: number
+  maxYouTubeLookups: number
+  maxConcurrentImports: number
+  truncated: boolean
+  cancelRequested: boolean
+  error: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+  items: SpotifyImportItem[]
+}
+
 interface PlaylistState {
   playlists: Playlist[]
   activePlaylistId: string | null
   tracks: Track[]
   loadedTracksPlaylistId: string | null
   loading: boolean
+  spotifyImportJobs: SpotifyImportJob[]
+  spotifyImportLoading: boolean
   grabUsesActivePlaylistByDefault: boolean
 
   fetchPlaylists: () => Promise<void>
@@ -49,6 +98,9 @@ interface PlaylistState {
   addTrackFromUrl: (playlistId: string, url: string) => Promise<void>
   removeTrack: (playlistId: string, trackId: string) => Promise<void>
   reorderTracks: (playlistId: string, trackIds: string[]) => Promise<void>
+  fetchSpotifyImportJobs: () => Promise<void>
+  startSpotifyImport: (url: string) => Promise<SpotifyImportJob>
+  cancelSpotifyImport: (jobId: string) => Promise<SpotifyImportJob>
 }
 
 interface TrackMutationResponse {
@@ -78,6 +130,8 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
   tracks: [],
   loadedTracksPlaylistId: null,
   loading: false,
+  spotifyImportJobs: [],
+  spotifyImportLoading: false,
   grabUsesActivePlaylistByDefault: getInitialGrabUsesActivePlaylistByDefault(),
 
   fetchPlaylists: async () => {
@@ -199,5 +253,51 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
               .filter((track): track is Track => track !== null)
           : s.tracks,
     }))
+  },
+
+  fetchSpotifyImportJobs: async () => {
+    set({ spotifyImportLoading: true })
+    try {
+      const jobs = await api<SpotifyImportJob[]>('/api/playlists/imports')
+      set({
+        spotifyImportJobs: jobs.sort(
+          (left, right) =>
+            new Date(right.createdAt).getTime() -
+            new Date(left.createdAt).getTime(),
+        ),
+      })
+    } finally {
+      set({ spotifyImportLoading: false })
+    }
+  },
+
+  startSpotifyImport: async (url) => {
+    const job = await api<SpotifyImportJob>('/api/playlists/imports/spotify', {
+      method: 'POST',
+      body: { url },
+    })
+
+    set((s) => ({
+      spotifyImportJobs: [job, ...s.spotifyImportJobs.filter((item) => item.id !== job.id)],
+    }))
+
+    return job
+  },
+
+  cancelSpotifyImport: async (jobId) => {
+    const job = await api<SpotifyImportJob>(
+      `/api/playlists/imports/${jobId}/cancel`,
+      {
+        method: 'POST',
+      },
+    )
+
+    set((s) => ({
+      spotifyImportJobs: s.spotifyImportJobs.map((item) =>
+        item.id === job.id ? job : item,
+      ),
+    }))
+
+    return job
   },
 }))

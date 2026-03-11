@@ -15,10 +15,12 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
+import { SpotifyImportModal } from '../components/playlists/SpotifyImportModal'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { api } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
+import type { SpotifyImportJob } from '../stores/playlistStore'
 import { usePlaylistStore } from '../stores/playlistStore'
 
 export const Route = createFileRoute('/playlists')({
@@ -27,6 +29,12 @@ export const Route = createFileRoute('/playlists')({
 
 function looksLikeMediaUrl(value: string) {
   return /^(https?:\/\/)?(?:www\.)?(?:(?:music|m)\.)?(?:youtube\.com|youtu\.be)\//i.test(
+    value.trim(),
+  )
+}
+
+function looksLikeSpotifyPlaylistUrl(value: string) {
+  return /^(?:https?:\/\/)?open\.spotify\.com\/playlist\/[A-Za-z0-9]{22}(?:\?.*)?$|^spotify:playlist:[A-Za-z0-9]{22}$/i.test(
     value.trim(),
   )
 }
@@ -46,6 +54,7 @@ export function PlaylistsPage() {
     tracks,
     activePlaylistId,
     loading,
+    spotifyImportJobs,
     fetchPlaylists,
     fetchTracks,
     createPlaylist,
@@ -57,8 +66,20 @@ export function PlaylistsPage() {
     addTrackFromUrl,
     removeTrack,
     reorderTracks,
+    fetchSpotifyImportJobs,
+    startSpotifyImport,
   } = usePlaylistStore()
   const [newName, setNewName] = useState('')
+  const [isSpotifyImportModalOpen, setIsSpotifyImportModalOpen] =
+    useState(false)
+  const [spotifyImportUrl, setSpotifyImportUrl] = useState('')
+  const [spotifyImportError, setSpotifyImportError] = useState<string | null>(
+    null,
+  )
+  const [spotifyImportNotice, setSpotifyImportNotice] = useState<string | null>(
+    null,
+  )
+  const [submittingSpotifyImport, setSubmittingSpotifyImport] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [mediaInput, setMediaInput] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
@@ -79,8 +100,12 @@ export function PlaylistsPage() {
   const [hasSearchedMedia, setHasSearchedMedia] = useState(false)
   const settingsMenuRef = useRef<HTMLDivElement | null>(null)
   const searchSurfaceRef = useRef<HTMLDivElement | null>(null)
+  const importStatusRef = useRef<Map<string, SpotifyImportJob['status']>>(
+    new Map(),
+  )
   const mediaInputTrimmed = mediaInput.trim()
   const mediaInputIsUrl = looksLikeMediaUrl(mediaInputTrimmed)
+  const spotifyImportTrimmed = spotifyImportUrl.trim()
   const mediaBusy = searchLoading || submittingMedia
   const trackSourceKeys = useMemo(
     () => new Set(tracks.map((track) => `${track.source}:${track.sourceId}`)),
@@ -96,8 +121,9 @@ export function PlaylistsPage() {
   useEffect(() => {
     if (user) {
       void fetchPlaylists()
+      void fetchSpotifyImportJobs()
     }
-  }, [fetchPlaylists, user])
+  }, [fetchPlaylists, fetchSpotifyImportJobs, user])
 
   useEffect(() => {
     if (selectedId) {
@@ -179,11 +205,133 @@ export function PlaylistsPage() {
     }
   }, [searchPanelOpen])
 
+  useEffect(() => {
+    if (!user) {
+      return
+    }
+
+    const hasActiveImports = spotifyImportJobs.some(
+      (job) => job.status === 'queued' || job.status === 'running',
+    )
+    if (!hasActiveImports) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      void fetchSpotifyImportJobs()
+    }, 3000)
+
+    return () => window.clearInterval(intervalId)
+  }, [fetchSpotifyImportJobs, spotifyImportJobs, user])
+
+  useEffect(() => {
+    let completedJobPlaylistId: string | null = null
+    let notice: string | null = null
+    let shouldSurfaceError = false
+
+    for (const job of spotifyImportJobs) {
+      const previousStatus = importStatusRef.current.get(job.id)
+      const becameTerminal =
+        previousStatus &&
+        (previousStatus === 'queued' || previousStatus === 'running') &&
+        (job.status === 'completed' ||
+          job.status === 'partial' ||
+          job.status === 'failed' ||
+          job.status === 'cancelled')
+
+      if (!becameTerminal) {
+        continue
+      }
+
+      if (
+        job.playlistId &&
+        (job.status === 'completed' || job.status === 'partial')
+      ) {
+        completedJobPlaylistId = job.playlistId
+      }
+
+      if (job.status === 'completed') {
+        notice = `Importação concluída: ${job.importedTracks} faixa${job.importedTracks === 1 ? '' : 's'} adicionada${job.importedTracks === 1 ? '' : 's'}.`
+      } else if (job.status === 'partial') {
+        notice = `Importação parcial: ${job.importedTracks} importada${job.importedTracks === 1 ? '' : 's'}, ${job.unresolvedTracks + job.failedTracks + job.budgetExhaustedTracks} pendência${job.unresolvedTracks + job.failedTracks + job.budgetExhaustedTracks === 1 ? '' : 's'}.`
+      } else if (job.status === 'failed') {
+        notice = job.error || 'A importação do Spotify falhou.'
+        shouldSurfaceError = true
+      } else if (job.status === 'cancelled') {
+        notice = 'A importação do Spotify foi cancelada.'
+        shouldSurfaceError = true
+      }
+    }
+
+    importStatusRef.current = new Map(
+      spotifyImportJobs.map((job) => [job.id, job.status]),
+    )
+
+    if (notice) {
+      setSpotifyImportNotice(notice)
+      if (shouldSurfaceError) {
+        setSpotifyImportError(notice)
+      } else {
+        setSpotifyImportError(null)
+      }
+    }
+
+    if (completedJobPlaylistId) {
+      setSelectedId(completedJobPlaylistId)
+      void fetchPlaylists()
+      void fetchTracks(completedJobPlaylistId)
+    }
+  }, [fetchPlaylists, fetchTracks, spotifyImportJobs])
+
   const handleCreate = async () => {
     if (!newName.trim()) return
     const playlistId = await createPlaylist(newName.trim())
     setSelectedId(playlistId)
     setNewName('')
+  }
+
+  const handleSpotifyImport = async () => {
+    if (!spotifyImportTrimmed) {
+      return
+    }
+
+    if (!looksLikeSpotifyPlaylistUrl(spotifyImportTrimmed)) {
+      setSpotifyImportError(
+        'Cole uma URL válida de playlist pública do Spotify.',
+      )
+      setSpotifyImportNotice(null)
+      return
+    }
+
+    setSubmittingSpotifyImport(true)
+    setSpotifyImportError(null)
+    setSpotifyImportNotice(null)
+
+    try {
+      await startSpotifyImport(spotifyImportTrimmed)
+      setSpotifyImportUrl('')
+      setIsSpotifyImportModalOpen(false)
+      setSpotifyImportNotice(
+        'Importação iniciada. A playlist será convertida em segundo plano.',
+      )
+    } catch (error: any) {
+      setSpotifyImportError(
+        error.message || 'Não foi possível iniciar a importação do Spotify.',
+      )
+    } finally {
+      setSubmittingSpotifyImport(false)
+    }
+  }
+
+  const handleOpenSpotifyImportModal = () => {
+    setSpotifyImportError(null)
+    setIsSpotifyImportModalOpen(true)
+  }
+
+  const handleCloseSpotifyImportModal = () => {
+    setIsSpotifyImportModalOpen(false)
+    setSpotifyImportUrl('')
+    setSpotifyImportError(null)
   }
 
   const handleAddSearchResult = async (result: SearchResult) => {
@@ -411,7 +559,7 @@ export function PlaylistsPage() {
                 exit={{ opacity: 0, y: 6, scale: 0.98 }}
                 transition={{ duration: 0.16 }}
                 role="menu"
-                className="absolute top-full left-0 right-0 z-20 mt-2 overflow-hidden rounded-[1.35rem] border border-[var(--border-light)] bg-[rgba(10,14,21,0.96)] shadow-[0_22px_42px_rgba(0,0,0,0.36)] backdrop-blur-xl md:top-0 md:left-full md:right-auto md:mt-0 md:ml-3 md:w-[20rem]"
+                className="absolute top-full left-0 right-0 z-50 mt-2 overflow-hidden rounded-[1.35rem] border border-[var(--border-light)] bg-[rgba(10,14,21,0.96)] shadow-[0_22px_42px_rgba(0,0,0,0.36)] backdrop-blur-xl md:top-0 md:left-full md:right-auto md:mt-0 md:ml-3 md:w-[20rem]"
               >
                 <div className="border-b border-[rgba(255,255,255,0.06)] px-4 py-3">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
@@ -470,6 +618,27 @@ export function PlaylistsPage() {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
+
+          <Button
+            variant="secondary"
+            className="mt-4 w-full justify-center"
+            onClick={handleOpenSpotifyImportModal}
+          >
+            <ListMusic className="h-4 w-4" />
+            Importar do Spotify
+          </Button>
+
+          {spotifyImportNotice && !spotifyImportError ? (
+            <div className="mt-3 rounded-xl border border-[rgba(55,210,124,0.22)] bg-[rgba(11,29,19,0.72)] px-3 py-2 text-[12px] font-medium text-[var(--accent-hover)]">
+              {spotifyImportNotice}
+            </div>
+          ) : null}
+
+          {spotifyImportError && !isSpotifyImportModalOpen ? (
+            <div className="mt-3 rounded-xl border border-[rgba(255,97,88,0.28)] bg-[rgba(68,17,19,0.6)] px-3 py-2 text-[12px] font-medium text-[rgba(255,214,211,0.94)]">
+              {spotifyImportError}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -853,6 +1022,19 @@ export function PlaylistsPage() {
           </div>
         )}
       </div>
+
+      <SpotifyImportModal
+        isOpen={isSpotifyImportModalOpen}
+        value={spotifyImportUrl}
+        error={spotifyImportError}
+        isLoading={submittingSpotifyImport}
+        onChange={(value) => {
+          setSpotifyImportUrl(value)
+          setSpotifyImportError(null)
+        }}
+        onClose={handleCloseSpotifyImportModal}
+        onSubmit={handleSpotifyImport}
+      />
     </div>
   )
 }
