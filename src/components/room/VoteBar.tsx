@@ -321,10 +321,10 @@ export function VoteBar({
   return (
     <>
       <div
-        className={`rounded-[1.45rem] p-1.5 backdrop-blur-[18px] ${
+        className={`backdrop-blur-[18px] ${
           variant === 'inline'
-            ? 'border border-[rgba(255,255,255,0.08)] bg-[rgba(8,13,19,0.72)] shadow-[0_20px_38px_rgba(0,0,0,0.24)]'
-            : 'bg-[rgba(8,13,19,0.78)] shadow-[0_18px_34px_rgba(0,0,0,0.34)]'
+            ? ''
+            : 'rounded-[1.45rem] p-1.5 bg-[rgba(8,13,19,0.78)] shadow-[0_18px_34px_rgba(0,0,0,0.34)]'
         }`}
       >
         <div className="flex items-stretch gap-1.5">

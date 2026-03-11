@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
-import { Radio, Users, X } from 'lucide-react'
+import { Users, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Avatar } from '../ui/Avatar'
@@ -35,7 +35,7 @@ interface RoomCompactLayoutProps {
 
 export function RoomCompactLayout({
   roomName,
-  hostName,
+  hostName: _hostName,
   activeUsersCount,
   errorMessage,
   currentUsername,
@@ -59,7 +59,7 @@ export function RoomCompactLayout({
     () => sheetTabs.find((tab) => tab.id === activeSheetTab) ?? sheetTabs[0],
     [activeSheetTab, sheetTabs],
   )
-  const contentBottomPadding = isViewportMobile ? 74 : 24
+
   const overlayBounds = isViewportMobile
     ? { top: 48, right: 0, bottom: 57, left: 0 }
     : { top: 0, right: 0, bottom: 0, left: 82 }
@@ -79,33 +79,21 @@ export function RoomCompactLayout({
   return (
     <div className="h-full w-full overflow-hidden bg-[#080c13]">
       <div className="flex h-full min-h-0 flex-col">
-        <header className="shrink-0 border-b border-[rgba(255,255,255,0.08)] bg-[#0b1018] shadow-[0_16px_38px_rgba(0,0,0,0.32)]">
+        <header className="shrink-0 border-b border-[rgba(255,255,255,0.08)] bg-[#0b1018]">
           <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-1.5 py-0.5">
-                  <Radio className="h-3 w-3 text-[var(--accent-hover)]" />
-                  Ao vivo
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <p className="min-w-0 truncate text-[14px] font-semibold tracking-tight text-white">
+                {roomName}
+              </p>
+              <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold text-[var(--text-muted)]">
+                <Users className="h-3 w-3" />
+                {activeUsersCount}
+              </span>
+              {errorMessage ? (
+                <span className="shrink-0 truncate rounded-full border border-[rgba(255,97,88,0.26)] bg-[rgba(68,17,19,0.78)] px-1.5 py-0.5 text-[9px] font-semibold text-[rgba(255,214,211,0.94)]">
+                  {errorMessage}
                 </span>
-                <span className="inline-flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {activeUsersCount}
-                </span>
-              </div>
-
-              <div className="mt-0.5 flex items-center gap-1.5">
-                <p className="min-w-0 truncate text-[14px] font-semibold tracking-tight text-white">
-                  {roomName}
-                </p>
-                <span className="truncate text-[9px] text-[var(--text-secondary)]">
-                  Host {hostName}
-                </span>
-                {errorMessage ? (
-                  <span className="truncate rounded-full border border-[rgba(255,97,88,0.26)] bg-[rgba(68,17,19,0.78)] px-1.5 py-0.5 text-[9px] font-semibold text-[rgba(255,214,211,0.94)]">
-                    {errorMessage}
-                  </span>
-                ) : null}
-              </div>
+              ) : null}
             </div>
 
             <button
@@ -118,15 +106,63 @@ export function RoomCompactLayout({
               <Avatar
                 username={currentUsername}
                 src={currentUserAvatar}
-                size="md"
-                className="h-7 w-7"
+                size="sm"
+                className="h-6 w-6"
               />
             </button>
           </div>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="shrink-0 pb-2 pt-1.5">
+          {isViewportMobile ? (
+            <div className="shrink-0 space-y-2 border-b border-[rgba(255,255,255,0.08)] bg-[rgba(7,10,15,0.96)] px-3 py-2">
+              {mobilePlayer ? (
+                <div>{mobilePlayer}</div>
+              ) : null}
+
+              <div
+                className="grid gap-2"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.max(1, actionCount)}, minmax(0, 1fr))`,
+                }}
+              >
+                {primaryAction ? (
+                  <div data-testid="room-primary-action" className="w-full">
+                    {primaryAction}
+                  </div>
+                ) : null}
+
+                {sheetTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    data-testid={`room-view-cta-${tab.id}`}
+                    onClick={() => openSheet(tab.id)}
+                    className="flex h-11 min-w-0 items-center gap-2 rounded-[1.1rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(11,16,24,0.72)] px-3 text-left shadow-[0_12px_24px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-colors hover:border-[rgba(255,255,255,0.16)] hover:bg-[rgba(16,22,31,0.84)]"
+                    aria-label={`Abrir ${tab.label}`}
+                  >
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-[var(--text-secondary)]">
+                      <tab.icon className="h-3.5 w-3.5" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[11px] font-semibold text-white">
+                        {tab.label}
+                      </p>
+                    </div>
+
+                    {typeof tab.badge === 'number' ? (
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--text-secondary)]">
+                        {tab.badge}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="shrink-0">
             <div className="relative overflow-hidden border-y border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.92)] shadow-[0_20px_42px_rgba(0,0,0,0.28)]">
               {stageMedia ? (
                 <div
@@ -145,61 +181,58 @@ export function RoomCompactLayout({
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[34%] bg-[linear-gradient(180deg,rgba(8,12,18,0)_0%,rgba(8,12,18,0.72)_58%,rgba(8,12,18,0.96)_100%)]" />
               </div>
 
-              <div className="border-t border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,10,15,0.96),rgba(10,14,21,0.98))] px-3 pb-3 pt-2.5">
-                <div className="space-y-2">
-                  <div>{controls}</div>
+              <div className="border-t border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,10,15,0.96),rgba(10,14,21,0.98))] px-3 pb-2.5 pt-2">
+                <div>{controls}</div>
 
-                  {isViewportMobile && mobilePlayer ? (
-                    <div>{mobilePlayer}</div>
-                  ) : null}
-
-                  <div
-                    className="grid gap-2"
-                    style={{
-                      gridTemplateColumns: `repeat(${Math.max(1, actionCount)}, minmax(0, 1fr))`,
-                    }}
-                  >
-                    {primaryAction ? (
-                      <div data-testid="room-primary-action" className="w-full">
-                        {primaryAction}
-                      </div>
-                    ) : null}
-
-                    {sheetTabs.map((tab) => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        data-testid={`room-view-cta-${tab.id}`}
-                        onClick={() => openSheet(tab.id)}
-                        className="flex h-11 min-w-0 items-center gap-2 rounded-[1.1rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(11,16,24,0.72)] px-3 text-left shadow-[0_12px_24px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-colors hover:border-[rgba(255,255,255,0.16)] hover:bg-[rgba(16,22,31,0.84)]"
-                        aria-label={`Abrir ${tab.label}`}
-                      >
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-[var(--text-secondary)]">
-                          <tab.icon className="h-3.5 w-3.5" />
+                {!isViewportMobile ? (
+                  <div className="mt-2">
+                    <div
+                      className="grid gap-2"
+                      style={{
+                        gridTemplateColumns: `repeat(${Math.max(1, actionCount)}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {primaryAction ? (
+                        <div data-testid="room-primary-action" className="w-full">
+                          {primaryAction}
                         </div>
+                      ) : null}
 
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[11px] font-semibold text-white">
-                            {tab.label}
-                          </p>
-                        </div>
+                      {sheetTabs.map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          data-testid={`room-view-cta-${tab.id}`}
+                          onClick={() => openSheet(tab.id)}
+                          className="flex h-11 min-w-0 items-center gap-2 rounded-[1.1rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(11,16,24,0.72)] px-3 text-left shadow-[0_12px_24px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-colors hover:border-[rgba(255,255,255,0.16)] hover:bg-[rgba(16,22,31,0.84)]"
+                          aria-label={`Abrir ${tab.label}`}
+                        >
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-[var(--text-secondary)]">
+                            <tab.icon className="h-3.5 w-3.5" />
+                          </div>
 
-                        {typeof tab.badge === 'number' ? (
-                          <span className="inline-flex min-w-5 items-center justify-center rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--text-secondary)]">
-                            {tab.badge}
-                          </span>
-                        ) : null}
-                      </button>
-                    ))}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[11px] font-semibold text-white">
+                              {tab.label}
+                            </p>
+                          </div>
+
+                          {typeof tab.badge === 'number' ? (
+                            <span className="inline-flex min-w-5 items-center justify-center rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--text-secondary)]">
+                              {tab.badge}
+                            </span>
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                ) : null}
               </div>
             </div>
           </div>
 
           <div
             className="min-h-0 flex-1 overflow-hidden px-3 pb-3"
-            style={{ paddingBottom: `${contentBottomPadding}px` }}
           >
             <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[1.6rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,13,19,0.88)] shadow-[0_18px_42px_rgba(0,0,0,0.24)]">
               {chat}
