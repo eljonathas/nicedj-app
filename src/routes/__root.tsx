@@ -44,6 +44,10 @@ const navItems = [
   { to: '/shop', icon: ShoppingBag, label: 'Loja', floatingView: 'shop' },
 ] as const
 
+type FloatingPanelView = NonNullable<
+  ReturnType<typeof useUIStore.getState>['floatingPanel']
+>['view']
+
 type ConnectionBannerTone = 'warning' | 'danger'
 
 type ConnectionBanner = {
@@ -84,10 +88,19 @@ function isSlowConnection(connection: NetworkInformationLike | undefined) {
 }
 
 function RootLayout() {
-  const { user, logout, initialized, initialize, wsClient, setError } =
-    useAuthStore()
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  const username = useAuthStore((s) => s.user?.username ?? null)
+  const logout = useAuthStore((s) => s.logout)
+  const initialized = useAuthStore((s) => s.initialized)
+  const initialize = useAuthStore((s) => s.initialize)
+  const wsClient = useAuthStore((s) => s.wsClient)
+  const setError = useAuthStore((s) => s.setError)
   const activeRoom = useRoomStore((s) => s.activeRoom)
-  const roomUsers = useRoomStore((s) => s.users)
+  const currentUserRoomRole = useRoomStore((s) =>
+    userId
+      ? (s.users.find((member) => member.id === userId)?.role ?? null)
+      : null,
+  )
   const floatingPanel = useUIStore((s) => s.floatingPanel)
   const openFloatingPanel = useUIStore((s) => s.openFloatingPanel)
   const closeFloatingPanel = useUIStore((s) => s.closeFloatingPanel)
@@ -140,9 +153,11 @@ function RootLayout() {
       return
     }
 
-    const networkInfo = (navigator as Navigator & {
-      connection?: NetworkInformationLike
-    }).connection
+    const networkInfo = (
+      navigator as Navigator & {
+        connection?: NetworkInformationLike
+      }
+    ).connection
 
     const updateConnectionBanner = () => {
       if (!window.navigator.onLine) {
@@ -196,7 +211,7 @@ function RootLayout() {
   }
 
   const toggleFloatingPanel = (
-    view: (typeof navItems)[number]['floatingView'],
+    view: FloatingPanelView,
     options?: { profileId?: string | null },
   ) => {
     if (floatingPanel?.view === view) {
@@ -220,8 +235,7 @@ function RootLayout() {
   const isMarketingPage = location.pathname === '/'
   const useFloatingMenus =
     Boolean(activeRoom) && location.pathname.startsWith('/room/')
-  const currentRoomUser = roomUsers.find((member) => member.id === user?.id)
-  const canManageActiveRoom = hasRoomManagementAccess(currentRoomUser?.role)
+  const canManageActiveRoom = hasRoomManagementAccess(currentUserRoomRole)
 
   if (isAuthPage || isMarketingPage) {
     return (
@@ -350,14 +364,14 @@ function RootLayout() {
             </div>
 
             <div className="w-full px-2">
-              {user ? (
+              {userId ? (
                 <div className="flex flex-col items-center gap-2">
                   {useFloatingMenus ? (
                     <button
                       type="button"
-                      title={user.username}
+                      title={username ?? 'Perfil'}
                       onClick={() =>
-                        toggleFloatingPanel('profile', { profileId: user.id })
+                        toggleFloatingPanel('profile', { profileId: userId })
                       }
                       className={`flex h-12 w-12 items-center justify-center rounded-2xl border transition-colors ${
                         floatingPanel?.view === 'profile'
@@ -370,8 +384,8 @@ function RootLayout() {
                   ) : (
                     <Link
                       to="/profile/$id"
-                      params={{ id: user.id }}
-                      title={user.username}
+                      params={{ id: userId }}
+                      title={username ?? 'Perfil'}
                       className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(13,18,27,0.66)] text-[var(--text-secondary)] transition-colors hover:text-white"
                     >
                       <User2 className="h-4.5 w-4.5" />
@@ -410,7 +424,7 @@ function RootLayout() {
               </span>
             </Link>
 
-            {user && (
+            {userId && (
               <button
                 onClick={handleLogout}
                 className="h-8 w-8 rounded-lg border border-[var(--border-light)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--danger)] flex items-center justify-center cursor-pointer"

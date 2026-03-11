@@ -533,11 +533,11 @@ function useVoteBarState() {
   const clientVote = useRoomStore((s) => s.clientVote)
   const clientGrabbed = useRoomStore((s) => s.clientGrabbed)
   const clientGrabPlaylistId = useRoomStore((s) => s.clientGrabPlaylistId)
-  const user = useAuthStore((s) => s.user)
+  const currentUserId = useAuthStore((s) => s.user?.id ?? null)
   const wsClient = useAuthStore((s) => s.wsClient)
 
-  const isInQueue = Boolean(user?.id && queue.includes(user.id))
-  const isCurrentDJ = playbackDjId === user?.id
+  const isInQueue = Boolean(currentUserId && queue.includes(currentUserId))
+  const isCurrentDJ = playbackDjId === currentUserId
 
   const handleVote = (
     type: VoteType,

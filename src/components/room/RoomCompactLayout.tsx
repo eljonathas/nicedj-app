@@ -25,6 +25,7 @@ interface RoomCompactLayoutProps {
   isViewportMobile: boolean
   stage: ReactNode
   stageMedia?: ReactNode
+  mobilePlayer?: ReactNode
   controls: ReactNode
   primaryAction?: ReactNode
   chat: ReactNode
@@ -42,6 +43,7 @@ export function RoomCompactLayout({
   isViewportMobile,
   stage,
   stageMedia,
+  mobilePlayer,
   controls,
   primaryAction,
   chat,
@@ -147,6 +149,10 @@ export function RoomCompactLayout({
                 <div className="space-y-2">
                   <div>{controls}</div>
 
+                  {isViewportMobile && mobilePlayer ? (
+                    <div>{mobilePlayer}</div>
+                  ) : null}
+
                   <div
                     className="grid gap-2"
                     style={{
@@ -192,10 +198,10 @@ export function RoomCompactLayout({
           </div>
 
           <div
-            className="min-h-0 flex-1 px-3 pb-3"
+            className="min-h-0 flex-1 overflow-hidden px-3 pb-3"
             style={{ paddingBottom: `${contentBottomPadding}px` }}
           >
-            <div className="h-full min-h-0 overflow-hidden rounded-[1.6rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,13,19,0.88)] shadow-[0_18px_42px_rgba(0,0,0,0.24)]">
+            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[1.6rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,13,19,0.88)] shadow-[0_18px_42px_rgba(0,0,0,0.24)]">
               {chat}
             </div>
           </div>

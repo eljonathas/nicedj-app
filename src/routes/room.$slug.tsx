@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ChevronLeft,
@@ -17,6 +17,7 @@ import { useUIStore } from '../stores/uiStore'
 import { useWsEvents } from '../hooks/useWsEvents'
 import { api } from '../lib/api'
 import { MediaPlayer } from '../components/player/MediaPlayer'
+import { MobileMediaPlayer } from '../components/player/MobileMediaPlayer'
 import {
   RoomPlaylistDock,
   RoomProfileDock,
@@ -35,6 +36,8 @@ export const Route = createFileRoute('/room/$slug')({
   component: RoomPage,
 })
 
+type RoomPanel = 'chat' | 'users' | 'queue'
+
 interface RoomData {
   id: string
   name: string
@@ -51,28 +54,23 @@ function RoomPage() {
   const { slug } = Route.useParams()
   const navigate = useNavigate()
 
-  const user = useAuthStore((s) => s.user)
+  const currentUserId = useAuthStore((s) => s.user?.id ?? null)
+  const currentUsername = useAuthStore((s) => s.user?.username ?? null)
+  const currentUserAvatar = useAuthStore((s) => s.user?.avatar ?? null)
   const wsClient = useAuthStore((s) => s.wsClient)
 
-  const room = useRoomStore((s) => s.room)
-  const users = useRoomStore((s) => s.users)
-  const playback = useRoomStore((s) => s.playback)
-  const queue = useRoomStore((s) => s.queue)
-  const currentDjId = playback?.djId
-  const roomEventError = useRoomStore((s) => s.errorMessage)
+  const roomId = useRoomStore((s) => s.room?.id ?? null)
   const reset = useRoomStore((s) => s.reset)
   const setRoom = useRoomStore((s) => s.setRoom)
 
-  const {
-    activePanel,
-    setActivePanel,
-    isMobile: isViewportMobile,
-    setIsMobile,
-    isRoomCompactLayout,
-    setRoomCompactLayout,
-    setRoomSidebarWidth,
-    openFloatingPanel,
-  } = useUIStore()
+  const activePanel = useUIStore((s) => s.activePanel)
+  const setActivePanel = useUIStore((s) => s.setActivePanel)
+  const isViewportMobile = useUIStore((s) => s.isMobile)
+  const setIsMobile = useUIStore((s) => s.setIsMobile)
+  const isRoomCompactLayout = useUIStore((s) => s.isRoomCompactLayout)
+  const setRoomCompactLayout = useUIStore((s) => s.setRoomCompactLayout)
+  const setRoomSidebarWidth = useUIStore((s) => s.setRoomSidebarWidth)
+  const openFloatingPanel = useUIStore((s) => s.openFloatingPanel)
   const [loadingRoom, setLoadingRoom] = useState(true)
   const [roomError, setRoomError] = useState<string | null>(null)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
@@ -106,10 +104,10 @@ function RoomPage() {
   }, [setRoom, slug])
 
   useEffect(() => {
-    if (!wsClient || !room?.id) return
+    if (!wsClient || !roomId) return
 
-    wsClient.send('join_room', { roomId: room.id })
-  }, [room?.id, wsClient])
+    wsClient.send('join_room', { roomId })
+  }, [roomId, wsClient])
 
   useEffect(() => {
     return () => {
@@ -151,22 +149,6 @@ function RoomPage() {
     }
   }, [setRoomSidebarWidth])
 
-  const panelTabs = [
-    { id: 'chat' as const, label: 'Chat', icon: MessageSquare },
-    { id: 'users' as const, label: 'Pessoas', icon: Users },
-    { id: 'queue' as const, label: `Fila (${queue.length})`, icon: ListMusic },
-  ]
-
-  const hostName = useMemo(() => {
-    if (!room) return 'aguardando host'
-
-    const hostUser =
-      users.find((candidate) => candidate.role === 'host') ??
-      users.find((candidate) => candidate.id === room.ownerId)
-
-    return hostUser?.username ?? room.ownerUsername ?? 'aguardando host'
-  }, [room, users])
-
   if (loadingRoom) {
     return (
       <div className="flex h-full w-full items-center justify-center">
@@ -200,7 +182,7 @@ function RoomPage() {
     )
   }
 
-  if (!user) {
+  if (!currentUserId || !currentUsername) {
     return (
       <div className="mx-auto flex h-full w-full max-w-lg items-center px-5">
         <motion.div
@@ -229,61 +211,125 @@ function RoomPage() {
     )
   }
 
-  const panelHeader = (
-    <div className="shrink-0 border-b border-[rgba(255,255,255,0.08)] bg-[#0c1119] shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
-      <div
-        className={`flex items-center ${
-          isPanelCollapsed
-            ? 'justify-center p-2'
-            : 'justify-between px-2.5 py-3'
-        }`}
+  if (isRoomCompactLayout) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="h-full w-full bg-[#080c13]"
       >
-        {!isPanelCollapsed && (
-          <div className="mr-2 grid w-full grid-cols-3 gap-1 p-1">
-            {panelTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActivePanel(tab.id)}
-                className={`flex h-8 items-center justify-center gap-1 rounded-md text-[11px] font-semibold transition-all ${
-                  activePanel === tab.id
-                    ? 'bg-[rgba(255,255,255,0.1)] text-white'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <tab.icon className="h-3.5 w-3.5" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <ConnectedRoomCompactLayout
+          currentUsername={currentUsername}
+          currentUserAvatar={currentUserAvatar}
+          isViewportMobile={isViewportMobile}
+          onOpenProfile={() =>
+            openFloatingPanel('profile', {
+              profileId: currentUserId,
+            })
+          }
+        />
+      </motion.div>
+    )
+  }
 
-        <button
-          onClick={() => setIsPanelCollapsed((value) => !value)}
-          className="h-8 w-8 rounded-md border border-[rgba(255,255,255,0.14)] bg-[rgba(13,18,27,0.95)] text-[var(--text-secondary)] transition-colors hover:text-white"
-          aria-label={isPanelCollapsed ? 'Expandir painel' : 'Recolher painel'}
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="h-full w-full bg-[#080c13]"
+    >
+      <div className="flex h-full w-full min-h-0">
+        <section className="flex min-w-0 flex-1 flex-col">
+          <header className="shrink-0 border-b border-[rgba(255,255,255,0.08)] bg-[#0b1018] shadow-[0_16px_38px_rgba(0,0,0,0.4)]">
+            <ConnectedRoomTopBar />
+          </header>
+
+          <DesktopStageContent />
+
+          <footer className="shrink-0 border-t border-[rgba(255,255,255,0.08)] bg-[#0a0f17] shadow-[0_-10px_24px_rgba(0,0,0,0.34)]">
+            <RoomPlaylistDock />
+          </footer>
+        </section>
+
+        <aside
+          className={`shrink-0 border-l border-[rgba(255,255,255,0.08)] bg-[#0a0f17] transition-all duration-300 ${
+            isPanelCollapsed ? 'w-[58px]' : 'w-[336px]'
+          }`}
         >
-          {isPanelCollapsed ? (
-            <ChevronLeft className="mx-auto h-4 w-4" />
-          ) : (
-            <ChevronRight className="mx-auto h-4 w-4" />
-          )}
-        </button>
+          <RoomSidebarPanel
+            activePanel={activePanel}
+            isPanelCollapsed={isPanelCollapsed}
+            onChangePanel={setActivePanel}
+            onToggleCollapsed={() => setIsPanelCollapsed((value) => !value)}
+            onExpandPanel={() => setIsPanelCollapsed(false)}
+          />
+        </aside>
       </div>
-    </div>
+    </motion.div>
   )
+}
 
-  const playerCard = (
-    <div className="mx-auto aspect-video w-full overflow-hidden rounded-2xl">
-      <MediaPlayer />
-    </div>
+function resolveRoomHostName(
+  room: ReturnType<typeof useRoomStore.getState>['room'],
+  users: ReturnType<typeof useRoomStore.getState>['users'],
+) {
+  if (!room) {
+    return 'aguardando host'
+  }
+
+  const hostUser =
+    users.find((candidate) => candidate.role === 'host') ??
+    users.find((candidate) => candidate.id === room.ownerId)
+
+  return hostUser?.username ?? room.ownerUsername ?? 'aguardando host'
+}
+
+const ConnectedRoomTopBar = memo(function ConnectedRoomTopBar() {
+  const room = useRoomStore((s) => s.room)
+  const users = useRoomStore((s) => s.users)
+  const errorMessage = useRoomStore((s) => s.errorMessage)
+
+  const hostName = useMemo(() => resolveRoomHostName(room, users), [room, users])
+
+  return (
+    <RoomTopBar
+      roomName={room?.name || 'Sala'}
+      hostName={hostName}
+      activeUsersCount={users.length}
+      errorMessage={errorMessage}
+    />
   )
+})
 
-  const stageContent = (
+const ConnectedStage = memo(function ConnectedStage({
+  layout = 'default',
+  maxCrowdUsers,
+}: {
+  layout?: 'default' | 'hero'
+  maxCrowdUsers?: number
+}) {
+  const users = useRoomStore((s) => s.users)
+  const currentDjId = useRoomStore((s) => s.playback?.djId)
+
+  return (
+    <Stage
+      users={users}
+      djId={currentDjId}
+      layout={layout}
+      maxCrowdUsers={maxCrowdUsers}
+    />
+  )
+})
+
+const DesktopStageContent = memo(function DesktopStageContent() {
+  return (
     <div className="relative h-full min-h-0 flex-1">
-      <Stage users={users} djId={currentDjId} />
+      <ConnectedStage />
 
       <div className="pointer-events-none absolute inset-x-0 top-3 z-30 flex justify-center px-4">
-        <div className="pointer-events-auto w-full max-w-160">{playerCard}</div>
+        <div className="pointer-events-auto mx-auto aspect-video w-full max-w-160 overflow-hidden rounded-2xl">
+          <MediaPlayer />
+        </div>
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 z-40">
@@ -299,143 +345,174 @@ function RoomPage() {
       </div>
     </div>
   )
+})
 
-  const compactControls = <VoteBar variant="inline" />
+const ConnectedRoomCompactLayout = memo(function ConnectedRoomCompactLayout({
+  currentUsername,
+  currentUserAvatar,
+  isViewportMobile,
+  onOpenProfile,
+}: {
+  currentUsername: string
+  currentUserAvatar?: string | null
+  isViewportMobile: boolean
+  onOpenProfile: () => void
+}) {
+  const room = useRoomStore((s) => s.room)
+  const users = useRoomStore((s) => s.users)
+  const queueCount = useRoomStore((s) => s.queue.length)
+  const errorMessage = useRoomStore((s) => s.errorMessage)
 
-  const compactQueueContent = <DJQueue variant="compact" />
-
-  if (isRoomCompactLayout) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="h-full w-full bg-[#080c13]"
-      >
-        <RoomCompactLayout
-          roomName={room?.name || 'Sala'}
-          hostName={hostName}
-          activeUsersCount={users.length}
-          errorMessage={roomEventError}
-          currentUsername={user.username}
-          currentUserAvatar={user.avatar}
-          isViewportMobile={isViewportMobile}
-          stage={
-            <Stage
-              users={users}
-              djId={currentDjId}
-              layout="hero"
-              maxCrowdUsers={isViewportMobile ? 0 : 8}
-            />
-          }
-          stageMedia={<MediaPlayer />}
-          controls={compactControls}
-          primaryAction={<QueueActionButton variant="cta" />}
-          chat={<ChatPanel />}
-          onOpenProfile={() =>
-            openFloatingPanel('profile', {
-              profileId: user.id,
-            })
-          }
-          sheetTabs={[
-            {
-              id: 'users',
-              label: 'Pessoas',
-              icon: Users,
-              badge: users.length,
-              content: <UserList variant="compact" />,
-            },
-            {
-              id: 'queue',
-              label: 'Fila',
-              icon: ListMusic,
-              badge: queue.length,
-              content: compactQueueContent,
-            },
-          ]}
-        />
-      </motion.div>
-    )
-  }
+  const hostName = useMemo(() => resolveRoomHostName(room, users), [room, users])
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="h-full w-full bg-[#080c13]"
-    >
-      <div className="flex h-full w-full min-h-0">
-        <section className="flex min-w-0 flex-1 flex-col">
-          <header className="shrink-0 border-b border-[rgba(255,255,255,0.08)] bg-[#0b1018] shadow-[0_16px_38px_rgba(0,0,0,0.4)]">
-            <RoomTopBar
-              roomName={room?.name || 'Sala'}
-              hostName={hostName}
-              activeUsersCount={users.length}
-              errorMessage={roomEventError}
-            />
-          </header>
+    <RoomCompactLayout
+      roomName={room?.name || 'Sala'}
+      hostName={hostName}
+      activeUsersCount={users.length}
+      errorMessage={errorMessage}
+      currentUsername={currentUsername}
+      currentUserAvatar={currentUserAvatar}
+      isViewportMobile={isViewportMobile}
+      stage={
+        <ConnectedStage
+          layout="hero"
+          maxCrowdUsers={isViewportMobile ? 0 : 8}
+        />
+      }
+      stageMedia={<MediaPlayer />}
+      mobilePlayer={<MobileMediaPlayer />}
+      controls={<VoteBar variant="inline" />}
+      primaryAction={<QueueActionButton variant="cta" />}
+      chat={<ChatPanel />}
+      onOpenProfile={onOpenProfile}
+      sheetTabs={[
+        {
+          id: 'users',
+          label: 'Pessoas',
+          icon: Users,
+          badge: users.length,
+          content: <UserList variant="compact" />,
+        },
+        {
+          id: 'queue',
+          label: 'Fila',
+          icon: ListMusic,
+          badge: queueCount,
+          content: <DJQueue variant="compact" />,
+        },
+      ]}
+    />
+  )
+})
 
-          {stageContent}
+const RoomSidebarPanel = memo(function RoomSidebarPanel({
+  activePanel,
+  isPanelCollapsed,
+  onChangePanel,
+  onToggleCollapsed,
+  onExpandPanel,
+}: {
+  activePanel: RoomPanel
+  isPanelCollapsed: boolean
+  onChangePanel: (panel: RoomPanel) => void
+  onToggleCollapsed: () => void
+  onExpandPanel: () => void
+}) {
+  const queueCount = useRoomStore((s) => s.queue.length)
+  const panelTabs = [
+    { id: 'chat' as const, label: 'Chat', icon: MessageSquare },
+    { id: 'users' as const, label: 'Pessoas', icon: Users },
+    { id: 'queue' as const, label: `Fila (${queueCount})`, icon: ListMusic },
+  ]
 
-          <footer className="shrink-0 border-t border-[rgba(255,255,255,0.08)] bg-[#0a0f17] shadow-[0_-10px_24px_rgba(0,0,0,0.34)]">
-            <RoomPlaylistDock />
-          </footer>
-        </section>
-
-        <aside
-          className={`shrink-0 border-l border-[rgba(255,255,255,0.08)] bg-[#0a0f17] transition-all duration-300 ${
-            isPanelCollapsed ? 'w-[58px]' : 'w-[336px]'
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-[rgba(255,255,255,0.08)] bg-[#0c1119] shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+        <div
+          className={`flex items-center ${
+            isPanelCollapsed
+              ? 'justify-center p-2'
+              : 'justify-between px-2.5 py-3'
           }`}
         >
-          <div className="flex h-full min-h-0 flex-col">
-            {panelHeader}
-
-            {isPanelCollapsed ? (
-              <div className="flex flex-1 flex-col items-center gap-1 py-2.5">
-                {panelTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      setActivePanel(tab.id)
-                      setIsPanelCollapsed(false)
-                    }}
-                    className={`h-9 w-9 rounded-md border transition-colors ${
-                      activePanel === tab.id
-                        ? 'border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.1)] text-white'
-                        : 'border-[rgba(255,255,255,0.1)] bg-[rgba(13,18,27,0.92)] text-[var(--text-muted)]'
-                    }`}
-                    aria-label={tab.label}
-                  >
-                    <tab.icon className="mx-auto h-4 w-4" />
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="relative flex-1 min-h-0">
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={activePanel}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.12 }}
-                    className="absolute inset-0"
-                  >
-                    {activePanel === 'chat' && <ChatPanel />}
-                    {activePanel === 'users' && <UserList />}
-                    {activePanel === 'queue' && <DJQueue />}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            )}
-
-            <div className="shrink-0 border-t border-[rgba(255,255,255,0.08)]">
-              <div className={isPanelCollapsed ? 'flex justify-center' : ''}>
-                <RoomProfileDock collapsed={isPanelCollapsed} />
-              </div>
+          {!isPanelCollapsed && (
+            <div className="mr-2 grid w-full grid-cols-3 gap-1 p-1">
+              {panelTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => onChangePanel(tab.id)}
+                  className={`flex h-8 items-center justify-center gap-1 rounded-md text-[11px] font-semibold transition-all ${
+                    activePanel === tab.id
+                      ? 'bg-[rgba(255,255,255,0.1)] text-white'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  <tab.icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                </button>
+              ))}
             </div>
-          </div>
-        </aside>
+          )}
+
+          <button
+            onClick={onToggleCollapsed}
+            className="h-8 w-8 rounded-md border border-[rgba(255,255,255,0.14)] bg-[rgba(13,18,27,0.95)] text-[var(--text-secondary)] transition-colors hover:text-white"
+            aria-label={isPanelCollapsed ? 'Expandir painel' : 'Recolher painel'}
+          >
+            {isPanelCollapsed ? (
+              <ChevronLeft className="mx-auto h-4 w-4" />
+            ) : (
+              <ChevronRight className="mx-auto h-4 w-4" />
+            )}
+          </button>
+        </div>
       </div>
-    </motion.div>
+
+      {isPanelCollapsed ? (
+        <div className="flex flex-1 flex-col items-center gap-1 py-2.5">
+          {panelTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                onChangePanel(tab.id)
+                onExpandPanel()
+              }}
+              className={`h-9 w-9 rounded-md border transition-colors ${
+                activePanel === tab.id
+                  ? 'border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.1)] text-white'
+                  : 'border-[rgba(255,255,255,0.1)] bg-[rgba(13,18,27,0.92)] text-[var(--text-muted)]'
+              }`}
+              aria-label={tab.label}
+            >
+              <tab.icon className="mx-auto h-4 w-4" />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="relative flex-1 min-h-0">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activePanel}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12 }}
+              className="absolute inset-0"
+            >
+              {activePanel === 'chat' && <ChatPanel />}
+              {activePanel === 'users' && <UserList />}
+              {activePanel === 'queue' && <DJQueue />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      )}
+
+      <div className="shrink-0 border-t border-[rgba(255,255,255,0.08)]">
+        <div className={isPanelCollapsed ? 'flex justify-center' : ''}>
+          <RoomProfileDock collapsed={isPanelCollapsed} />
+        </div>
+      </div>
+    </div>
   )
-}
+})

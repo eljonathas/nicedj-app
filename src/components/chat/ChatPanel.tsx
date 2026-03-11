@@ -48,7 +48,7 @@ export function ChatPanel() {
   const setMessages = useChatStore((s) => s.setMessages)
   const clearMessages = useChatStore((s) => s.clearMessages)
   const wsClient = useAuthStore((s) => s.wsClient)
-  const user = useAuthStore((s) => s.user)
+  const currentUserId = useAuthStore((s) => s.user?.id ?? null)
   const room = useRoomStore((s) => s.room)
   const users = useRoomStore((s) => s.users)
   const [input, setInput] = useState('')
@@ -59,8 +59,9 @@ export function ChatPanel() {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const currentRoomRole = useMemo(
-    () => users.find((candidate) => candidate.id === user?.id)?.role ?? 'user',
-    [user?.id, users],
+    () =>
+      users.find((candidate) => candidate.id === currentUserId)?.role ?? 'user',
+    [currentUserId, users],
   )
   const mentionIndex = useMemo(
     () =>
@@ -100,11 +101,11 @@ export function ChatPanel() {
               mentionMeta: parseChatMentions(
                 message.content,
                 mentionIndex,
-                user?.id,
+                currentUserId,
               ),
             },
       ),
-    [mentionIndex, messages, user?.id],
+    [currentUserId, mentionIndex, messages],
   )
   const mentionMatchCount = useMemo(
     () =>
@@ -295,7 +296,7 @@ export function ChatPanel() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-[rgba(10,13,19,0.92)]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[rgba(10,13,19,0.92)]">
       <div className="flex items-center justify-between gap-2 border-b border-[rgba(255,255,255,0.06)] px-3 py-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
           CHAT ({messages.length})
@@ -583,7 +584,7 @@ export function ChatPanel() {
               }
               placeholder="Mensagem... use @ para mencionar"
               maxLength={255}
-              className="h-9 w-full rounded-lg border border-[rgba(255,255,255,0.1)] bg-[rgba(16,20,28,0.95)] px-3 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[rgba(255,255,255,0.24)] focus:outline-none"
+              className="h-9 w-full rounded-lg border border-[rgba(255,255,255,0.1)] bg-[rgba(16,20,28,0.95)] px-3 text-[16px] md:text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[rgba(255,255,255,0.24)] focus:outline-none"
             />
           </div>
 

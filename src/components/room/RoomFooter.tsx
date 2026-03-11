@@ -9,7 +9,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { getPlaybackPositionMs } from '../../lib/playback'
 import { getLevelProgress } from '../../lib/progression'
 import { useAuthStore } from '../../stores/authStore'
@@ -18,7 +18,7 @@ import { useRoomStore } from '../../stores/roomStore'
 import { useUIStore } from '../../stores/uiStore'
 import { Avatar } from '../ui/Avatar'
 
-export function RoomTopBar({
+export const RoomTopBar = memo(function RoomTopBar({
   roomName,
   hostName,
   activeUsersCount,
@@ -29,21 +29,15 @@ export function RoomTopBar({
   activeUsersCount: number
   errorMessage?: string | null
 }) {
-  const playback = useRoomStore((s) => s.playback)
+  const hasPlayback = useRoomStore((s) => Boolean(s.playback))
+  const playbackTitle = useRoomStore(
+    (s) => s.playback?.title ?? 'Sem set no ar',
+  )
+  const playbackArtist = useRoomStore(
+    (s) => s.playback?.artist ?? 'Aguardando o próximo DJ',
+  )
   const playerVolume = useRoomStore((s) => s.playerVolume)
   const setPlayerVolume = useRoomStore((s) => s.setPlayerVolume)
-  const [nowMs, setNowMs] = useState(() => Date.now())
-
-  useEffect(() => {
-    if (!playback) return
-
-    const timer = window.setInterval(() => setNowMs(Date.now()), 250)
-    return () => window.clearInterval(timer)
-  }, [playback])
-
-  const currentPositionMs = playback
-    ? getPlaybackPositionMs(playback, nowMs)
-    : 0
   const volumeIcon = playerVolume === 0 ? VolumeX : Volume2
   const VolumeIcon = volumeIcon
 
@@ -70,7 +64,7 @@ export function RoomTopBar({
       <div className="grid w-full gap-2">
         <div className="flex items-center gap-2 overflow-hidden">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(13,18,27,0.92)] text-[var(--text-muted)]">
-            {playback ? (
+            {hasPlayback ? (
               <Music2 className="h-4 w-4" />
             ) : (
               <Disc3 className="h-4 w-4" />
@@ -78,17 +72,14 @@ export function RoomTopBar({
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-semibold text-white">
-              {playback?.title ?? 'Sem set no ar'}
+              {playbackTitle}
             </p>
             <p className="truncate text-[11px] text-[var(--text-secondary)]">
-              {playback?.artist ?? 'Aguardando o próximo DJ'}
+              {playbackArtist}
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <span className="shrink-0 text-[11px] font-medium tabular-nums text-[var(--text-secondary)]">
-              {formatTime(currentPositionMs)} /{' '}
-              {formatTime(playback?.durationMs ?? 0)}
-            </span>
+            <PlaybackTimecode />
             <div className="flex items-center gap-3">
               <VolumeIcon className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
               <input
@@ -111,27 +102,70 @@ export function RoomTopBar({
       </div>
     </div>
   )
-}
+})
 
-export function RoomPlaylistDock() {
-  const user = useAuthStore((s) => s.user)
+const PlaybackTimecode = memo(function PlaybackTimecode() {
+  const playback = useRoomStore((s) => s.playback)
+  const labelRef = useRef<HTMLSpanElement | null>(null)
+
+  useEffect(() => {
+    const label = labelRef.current
+    if (!label) {
+      return
+    }
+
+    const updateLabel = () => {
+      const currentPositionMs = playback
+        ? getPlaybackPositionMs(playback, Date.now())
+        : 0
+
+      label.textContent = `${formatTime(currentPositionMs)} / ${formatTime(
+        playback?.durationMs ?? 0,
+      )}`
+    }
+
+    updateLabel()
+
+    if (!playback || playback.paused) {
+      return
+    }
+
+    const timer = window.setInterval(updateLabel, 1000)
+    return () => window.clearInterval(timer)
+  }, [
+    playback,
+    playback?.paused,
+    playback?.pauseOffsetMs,
+    playback?.startedAtServerMs,
+    playback?.trackId,
+    playback?.durationMs,
+  ])
+
+  return (
+    <span
+      ref={labelRef}
+      className="shrink-0 text-[11px] font-medium tabular-nums text-[var(--text-secondary)]"
+    />
+  )
+})
+
+export const RoomPlaylistDock = memo(function RoomPlaylistDock() {
+  const userId = useAuthStore((s) => s.user?.id ?? null)
   const playbackTrackId = useRoomStore((s) => s.playback?.trackId)
   const openFloatingPanel = useUIStore((s) => s.openFloatingPanel)
-  const {
-    playlists,
-    tracks,
-    activePlaylistId,
-    loading,
-    fetchPlaylists,
-    fetchTracks,
-    activatePlaylist,
-  } = usePlaylistStore()
+  const playlists = usePlaylistStore((s) => s.playlists)
+  const tracks = usePlaylistStore((s) => s.tracks)
+  const activePlaylistId = usePlaylistStore((s) => s.activePlaylistId)
+  const loading = usePlaylistStore((s) => s.loading)
+  const fetchPlaylists = usePlaylistStore((s) => s.fetchPlaylists)
+  const fetchTracks = usePlaylistStore((s) => s.fetchTracks)
+  const activatePlaylist = usePlaylistStore((s) => s.activatePlaylist)
   const [changingPlaylist, setChangingPlaylist] = useState(false)
 
   useEffect(() => {
-    if (!user) return
+    if (!userId) return
     void fetchPlaylists()
-  }, [fetchPlaylists, user])
+  }, [fetchPlaylists, userId])
 
   useEffect(() => {
     if (!activePlaylistId) return
@@ -266,19 +300,23 @@ export function RoomPlaylistDock() {
       </div>
     </div>
   )
-}
+})
 
 export function RoomProfileDock({
   collapsed = false,
 }: {
   collapsed?: boolean
 }) {
-  const user = useAuthStore((s) => s.user)
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  const username = useAuthStore((s) => s.user?.username ?? null)
+  const avatar = useAuthStore((s) => s.user?.avatar ?? null)
+  const level = useAuthStore((s) => s.user?.level ?? 0)
+  const xp = useAuthStore((s) => s.user?.xp ?? 0)
   const openFloatingPanel = useUIStore((s) => s.openFloatingPanel)
 
-  if (!user) return null
+  if (!userId || !username) return null
 
-  const { progressPct, nextThreshold } = getLevelProgress(user.level, user.xp)
+  const { progressPct, nextThreshold } = getLevelProgress(level, xp)
 
   if (collapsed) {
     return (
@@ -286,15 +324,15 @@ export function RoomProfileDock({
         type="button"
         onClick={() =>
           openFloatingPanel('profile', {
-            profileId: user.id,
+            profileId: userId,
           })
         }
-        title={user.username}
+        title={username}
         className="block rounded-full border-0 bg-transparent p-0 cursor-pointer"
       >
         <Avatar
-          username={user.username}
-          src={user.avatar}
+          username={username}
+          src={avatar}
           size="sm"
           className="h-9 w-9 text-sm"
         />
@@ -308,14 +346,14 @@ export function RoomProfileDock({
         type="button"
         onClick={() =>
           openFloatingPanel('profile', {
-            profileId: user.id,
+            profileId: userId,
           })
         }
         className="shrink-0 rounded-full border-0 bg-transparent p-0 cursor-pointer"
       >
         <Avatar
-          username={user.username}
-          src={user.avatar}
+          username={username}
+          src={avatar}
           size="md"
           className="h-11 w-11 text-sm"
         />
@@ -324,10 +362,10 @@ export function RoomProfileDock({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between">
           <p className="truncate text-[13px] font-semibold text-white">
-            {user.username}
+            {username}
           </p>
           <span className="rounded-full border text-[10px] border-[rgba(55,210,124,0.18)] bg-[rgba(11,29,19,0.72)] px-2 py-0.5 font-semibold uppercase tracking-[0.12em] text-[var(--accent-hover)]">
-            Lv {user.level}
+            Lv {level}
           </span>
         </div>
         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[rgba(255,255,255,0.08)]">
@@ -337,7 +375,7 @@ export function RoomProfileDock({
           />
         </div>
         <div className="mt-1.5 flex items-center justify-between truncate text-[10px] text-(--text-muted)">
-          <span>{user.xp} XP</span>
+          <span>{xp} XP</span>
           <span>{nextThreshold} XP</span>
         </div>
       </div>
@@ -346,7 +384,7 @@ export function RoomProfileDock({
         type="button"
         onClick={() =>
           openFloatingPanel('profile', {
-            profileId: user.id,
+            profileId: userId,
           })
         }
         className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(13,18,27,0.6)] px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:text-white"

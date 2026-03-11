@@ -53,7 +53,7 @@ export function FloatingAppPanel() {
   const isMobile = useUIStore((s) => s.isMobile)
   const isRoomCompactLayout = useUIStore((s) => s.isRoomCompactLayout)
   const roomSidebarWidth = useUIStore((s) => s.roomSidebarWidth)
-  const user = useAuthStore((s) => s.user)
+  const currentUserId = useAuthStore((s) => s.user?.id ?? null)
 
   useEffect(() => {
     if (!panel) return
@@ -69,7 +69,9 @@ export function FloatingAppPanel() {
   }, [closeFloatingPanel, panel])
 
   const profileId =
-    panel?.view === 'profile' ? (panel.profileId ?? user?.id ?? null) : null
+    panel?.view === 'profile'
+      ? (panel.profileId ?? currentUserId ?? null)
+      : null
 
   const content =
     panel?.view === 'rooms' ? (
