@@ -1,3 +1,6 @@
+import { getCsrfToken, probeSession } from './api'
+import { emitAuthInvalidated } from './authEvents'
+
 type EventHandler = (payload: Record<string, unknown>) => void
 
 interface WsMessage {
@@ -31,7 +34,6 @@ const ROOM_SCOPED_COMMANDS = new Set([
 
 export class WsClient {
   private ws: WebSocket | null = null
-  private readonly token: string
   private url: string
   private listeners: Map<string, Set<EventHandler>> = new Map()
   private reconnectAttempts = 0
@@ -45,8 +47,7 @@ export class WsClient {
   private authenticated = false
   private joinedRoomId: string | null = null
 
-  constructor(token: string) {
-    this.token = token
+  constructor() {
     const base = import.meta.env.VITE_WS_URL || 'ws://localhost:3000/ws'
     this.url = base
   }
@@ -58,12 +59,11 @@ export class WsClient {
     )
       return
 
-    this.ws = new WebSocket(this.url)
+    this.ws = new WebSocket(this.buildUrl())
 
     this.ws.onopen = () => {
       this.reconnectAttempts = 0
       this.authenticated = false
-      this.sendAuthenticate()
 
       this.emit('_connected', {})
     }
@@ -79,10 +79,14 @@ export class WsClient {
     }
 
     this.ws.onclose = () => {
+      const wasAuthenticated = this.authenticated
       this.stopHeartbeat()
       this.authenticated = false
       this.joinedRoomId = null
       this.emit('_disconnected', {})
+      if (!wasAuthenticated) {
+        void this.recoverSession()
+      }
       this.scheduleReconnect()
     }
 
@@ -162,6 +166,23 @@ export class WsClient {
   }
 
   private handleInboundState(msg: WsMessage): void {
+    if (
+      msg.type === 'ack' &&
+      msg.event === 'connected' &&
+      msg.payload.authenticated === true
+    ) {
+      this.authenticated = true
+      this.stopHeartbeat()
+      this.startHeartbeat()
+
+      if (this.activeRoomId && this.joinedRoomId !== this.activeRoomId) {
+        this.ensureJoinQueued()
+      }
+
+      this.flushPendingCommands()
+      return
+    }
+
     if (msg.type === 'ack' && msg.event === 'authenticate') {
       this.authenticated = true
       this.stopHeartbeat()
@@ -218,14 +239,6 @@ export class WsClient {
 
   private sendRaw(msg: OutboundCommand): void {
     this.ws?.send(JSON.stringify(msg))
-  }
-
-  private sendAuthenticate(): void {
-    this.sendRaw(
-      this.buildCommand('authenticate', {
-        token: this.token,
-      }),
-    )
   }
 
   private enqueue(msg: OutboundCommand): void {
@@ -297,6 +310,32 @@ export class WsClient {
     this.reconnectTimer = setTimeout(() => {
       this.connect()
     }, delay)
+  }
+
+  private async recoverSession(): Promise<void> {
+    const result = await probeSession()
+    if (result !== 'invalid') {
+      return
+    }
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+
+    this.maxReconnectAttempts = 0
+    emitAuthInvalidated()
+  }
+
+  private buildUrl(): string {
+    const csrfToken = getCsrfToken()
+    if (!csrfToken) {
+      return this.url
+    }
+
+    const url = new URL(this.url)
+    url.searchParams.set('csrf', csrfToken)
+    return url.toString()
   }
 
   private startHeartbeat(): void {

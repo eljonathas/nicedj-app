@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WsClient } from './ws'
 
@@ -57,33 +59,44 @@ class MockWebSocket {
 describe('WsClient', () => {
   beforeEach(() => {
     MockWebSocket.reset()
+    document.cookie = 'nicedj_csrf_token=csrf-token'
     vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(null, { status: 204 })),
+    )
   })
 
   afterEach(() => {
+    document.cookie =
+      'nicedj_csrf_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'
     vi.unstubAllGlobals()
   })
 
-  it('negotiates only the application protocol and authenticates after opening', () => {
-    const client = new WsClient('token-123')
+  it('passes the csrf token in the websocket URL', () => {
+    const client = new WsClient()
 
     client.connect()
 
     const socket = MockWebSocket.instances[0]
     expect(socket.protocols).toEqual([])
-
+    expect(socket.url).toContain('csrf=csrf-token')
     socket.open()
-
-    expect(JSON.parse(socket.sent[0])).toMatchObject({
-      event: 'authenticate',
-      payload: { token: 'token-123' },
+    socket.message({
+      type: 'ack',
+      event: 'connected',
+      version: 'v1',
+      timestamp: new Date().toISOString(),
+      payload: {
+        authenticated: true,
+      },
     })
 
     client.disconnect()
   })
 
-  it('holds room commands until the authentication ack arrives', () => {
-    const client = new WsClient('token-123')
+  it('holds room commands until the authenticated connected ack arrives', () => {
+    const client = new WsClient()
 
     client.connect()
 
@@ -91,22 +104,22 @@ describe('WsClient', () => {
     socket.open()
     client.send('join_room', { roomId: 'room-1' })
 
-    expect(socket.sent).toHaveLength(1)
-    expect(JSON.parse(socket.sent[0]).event).toBe('authenticate')
+    expect(socket.sent).toHaveLength(0)
 
     socket.message({
       type: 'ack',
-      event: 'authenticate',
+      event: 'connected',
       version: 'v1',
       timestamp: new Date().toISOString(),
       payload: {
+        authenticated: true,
         userId: 'user-1',
         username: 'alice',
       },
     })
 
-    expect(socket.sent).toHaveLength(2)
-    expect(JSON.parse(socket.sent[1])).toMatchObject({
+    expect(socket.sent).toHaveLength(1)
+    expect(JSON.parse(socket.sent[0])).toMatchObject({
       event: 'join_room',
       payload: { roomId: 'room-1' },
     })

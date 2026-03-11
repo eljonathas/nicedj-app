@@ -20,7 +20,6 @@ interface ProgressionPayload {
 
 interface AuthState {
   user: User | null
-  token: string | null
   isLoading: boolean
   error: string | null
   wsClient: WsClient | null
@@ -28,7 +27,7 @@ interface AuthState {
 
   login: (email: string, password: string) => Promise<void>
   register: (username: string, email: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   setError: (error: string | null) => void
   initialize: () => Promise<void>
   applyProgression: (progression: ProgressionPayload) => void
@@ -37,19 +36,14 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  token: localStorage.getItem('nicedj_token'),
   isLoading: false,
   error: null,
   wsClient: null,
   initialized: false,
 
   initialize: async () => {
-    const { token, user, wsClient, initialized } = get()
+    const { user, wsClient, initialized } = get()
     if (initialized) return
-    if (!token) {
-      set({ initialized: true })
-      return
-    }
 
     if (user && wsClient) {
       set({ initialized: true })
@@ -66,9 +60,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         platformRole: string | null
         level: number
         xp: number
-      }>('/api/auth/me', { token })
+      }>('/api/auth/me', { skipAuth: true })
 
-      const ws = new WsClient(token)
+      const ws = new WsClient()
       ws.connect()
 
       set({
@@ -86,8 +80,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         initialized: true,
       })
     } catch {
-      localStorage.removeItem('nicedj_token')
-      set({ token: null, user: null, wsClient: null, initialized: true })
+      set({ user: null, wsClient: null, initialized: true })
     }
   },
 
@@ -95,21 +88,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const result = await api<{
-        accessToken: string
-        refreshToken: string
         user: User
       }>('/api/auth/login', {
         method: 'POST',
         body: { email, password },
         skipAuth: true,
       })
-      localStorage.setItem('nicedj_token', result.accessToken)
 
-      const wsClient = new WsClient(result.accessToken)
+      const wsClient = new WsClient()
       wsClient.connect()
 
       set({
-        token: result.accessToken,
         user: result.user,
         isLoading: false,
         wsClient,
@@ -134,11 +123,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  logout: () => {
+  logout: async () => {
     const { wsClient } = get()
     wsClient?.disconnect()
-    localStorage.removeItem('nicedj_token')
-    set({ user: null, token: null, wsClient: null })
+    set({ user: null, wsClient: null, initialized: true })
+
+    try {
+      await api('/api/auth/logout', {
+        method: 'POST',
+        skipAuth: true,
+      })
+    } catch {
+      // Ignore logout request failures after local session teardown.
+    }
   },
 
   setError: (error) => set({ error }),

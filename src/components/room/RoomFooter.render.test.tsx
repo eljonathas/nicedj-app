@@ -22,7 +22,6 @@ describe('RoomPlaylistDock renders', () => {
         level: 1,
         xp: 10,
       },
-      token: null,
       isLoading: false,
       error: null,
       wsClient: null,

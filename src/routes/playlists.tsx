@@ -600,15 +600,9 @@ export function PlaylistsPage() {
                     className="absolute inset-x-0 top-full z-30 mt-3 overflow-hidden rounded-[1.65rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(8,12,18,0.96)] shadow-[0_26px_56px_rgba(0,0,0,0.42)] backdrop-blur-xl"
                   >
                     <div className="flex items-start justify-between gap-3 border-b border-[rgba(255,255,255,0.06)] px-4 py-3">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                          Resultados
-                        </p>
-                        <p className="mt-1 text-[13px] text-[var(--text-secondary)]">
-                          A busca fica sobre a playlist para você não perder o
-                          contexto.
-                        </p>
-                      </div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                        Resultados
+                      </p>
 
                       <div className="flex items-center gap-2">
                         {!searchLoading ? (
@@ -668,17 +662,12 @@ export function PlaylistsPage() {
                                   <p className="truncate text-[12px] text-[var(--text-secondary)]">
                                     {result.artist}
                                   </p>
-                                  <p
-                                    className={`mt-1 text-[11px] ${
-                                      isSelected
-                                        ? 'text-[var(--accent-hover)]'
-                                        : 'text-[var(--text-muted)]'
-                                    }`}
-                                  >
-                                    {isSelected
-                                      ? 'Esta faixa ja esta na playlist.'
-                                      : 'Detalhes completos ao adicionar'}
-                                  </p>
+
+                                  {isSelected && (
+                                    <p className="mt-1 text-[11px] text-[var(--accent-hover)]">
+                                      Esta faixa ja esta na playlist.
+                                    </p>
+                                  )}
                                 </div>
 
                                 {isSelected ? (

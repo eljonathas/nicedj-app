@@ -20,8 +20,8 @@ function LoginPage() {
     event.preventDefault()
     setError(null)
     await login(email, password)
-    const token = useAuthStore.getState().token
-    if (token) navigate({ to: '/rooms' })
+    const user = useAuthStore.getState().user
+    if (user) navigate({ to: '/rooms' })
   }
 
   return (

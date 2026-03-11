@@ -116,7 +116,7 @@ function RootLayout() {
 
   useEffect(() => {
     return subscribeToAuthInvalidated(({ message }) => {
-      logout()
+      void logout()
       setError(message)
       closeFloatingPanel()
       useRoomStore.getState().reset()
@@ -204,9 +204,9 @@ function RootLayout() {
     }
   }, [wsDisconnected])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setError(null)
-    logout()
+    await logout()
     navigate({ to: '/login' })
   }
 

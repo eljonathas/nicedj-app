@@ -11,6 +11,8 @@ export function isInvalidAccessMessage(message: string | null | undefined) {
   return (
     normalized.includes('invalid access') ||
     normalized.includes('access token') ||
+    normalized.includes('invalid session') ||
+    normalized.includes('expired session') ||
     normalized.includes('token expired') ||
     normalized.includes('jwt expired') ||
     normalized.includes('unauthorized')
